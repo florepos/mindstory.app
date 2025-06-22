@@ -22,7 +22,7 @@ const UnifiedTrackingButton = ({
   const startTime = useRef(null)
   const instructionTimer = useRef(null)
 
-  const EXPAND_DURATION = 3000 // 3 seconds as requested
+  const EXPAND_DURATION = 3000 // 3 seconds
   const MAX_SCALE = 1.5
   const GESTURE_THRESHOLD = 80
 
@@ -45,7 +45,7 @@ const UnifiedTrackingButton = ({
     config: config.slow
   }))
 
-  // Direction indicators animation - Always visible when expanded
+  // Direction indicators animation
   const [indicatorSpring, indicatorApi] = useSpring(() => ({
     opacity: 1,
     scale: 1,
@@ -58,7 +58,7 @@ const UnifiedTrackingButton = ({
       if (!hasInteracted) {
         setShowInstructions(false)
       }
-    }, 8000) // Show for 8 seconds initially
+    }, 8000)
 
     return () => {
       if (instructionTimer.current) {
@@ -132,11 +132,11 @@ const UnifiedTrackingButton = ({
       
       // Update button scale and border radius
       const currentScale = getCurrentScale(currentProgress)
-      const borderRadius = 50 - (currentProgress * 0.3) // Slightly more square as it expands
+      const borderRadius = 50 - (currentProgress * 0.3)
       
       buttonApi.start({
         scale: currentScale,
-        rotate: currentProgress * 3.6, // 3 full rotations
+        rotate: currentProgress * 3.6,
         borderRadius: borderRadius,
         shadow: 20 + (currentProgress * 0.8),
         glow: 0.3 + (currentProgress * 0.007),
@@ -150,7 +150,6 @@ const UnifiedTrackingButton = ({
       if (currentProgress < 100) {
         progressTimer.current = requestAnimationFrame(updateProgress)
       } else {
-        // Expansion completed
         handleExpansionComplete()
       }
     }
@@ -243,7 +242,7 @@ const UnifiedTrackingButton = ({
       const distance = Math.sqrt(mx * mx + my * my)
 
       if (active && distance > 20) {
-        // Determine gesture direction with improved sensitivity
+        // Determine gesture direction
         let direction = null
         if (Math.abs(my) > Math.abs(mx)) {
           direction = my < 0 ? 'up' : 'down'
@@ -371,7 +370,7 @@ const UnifiedTrackingButton = ({
 
   const getGestureIcon = (direction) => {
     switch (direction) {
-      case 'right': return MessageCircle // Changed to comment icon for right swipe
+      case 'right': return MessageCircle
       case 'left': return X
       case 'up': return Camera
       default: return Target
@@ -474,7 +473,7 @@ const UnifiedTrackingButton = ({
           borderWidth: buttonSpring.borderWidth.to(w => `${w}px`),
           borderColor: isPressed || isExpanded ? '#f97316' : 'transparent',
           borderStyle: 'solid',
-          touchAction: 'none' // Prevent default touch behaviors
+          touchAction: 'none'
         }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
