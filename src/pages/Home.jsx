@@ -3,6 +3,7 @@ import GoalSlider from '../components/GoalSlider'
 import TrackButton from '../components/TrackButton'
 import AvatarSetupModal from '../components/AvatarSetupModal'
 import AuthModal from '../components/AuthModal'
+import PublicChallengeFeed from '../components/PublicChallengeFeed'
 import { Brain, Sparkles, Target, TrendingUp, Award, Zap, Star, Heart, Activity, FileText, Shield, LogIn, Loader2, Menu, LogOut } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
 
@@ -321,8 +322,13 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
           </div>
         </section>
 
-        {/* Premium Stats Section */}
+        {/* Public Challenges Section */}
         <section className="animate-slide-up" style={{ animationDelay: '0.6s' }}>
+          <PublicChallengeFeed />
+        </section>
+
+        {/* Premium Stats Section */}
+        <section className="animate-slide-up" style={{ animationDelay: '0.8s' }}>
           <div className="text-center mb-6 sm:mb-8 lg:mb-12">
             <h3 className="text-2xl sm:text-3xl font-bold gradient-text-premium mb-2 sm:mb-4">Your Progress</h3>
             <p className="text-gray-600 text-base sm:text-lg">Track your journey to success</p>

@@ -3,7 +3,9 @@ import { ChevronLeft, ChevronRight, Plus, Camera, Check, X, Share2, Edit3, Trash
 import { useSpring, animated, config } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 import { supabase } from '../services/supabaseClient'
-import CreateGoalModal from '../components/CreateGoalModal'
+import EnhancedCreateGoalModal from '../components/EnhancedCreateGoalModal'
+import CountableTrackingModal from '../components/CountableTrackingModal'
+import TrackingEntryContextMenu from '../components/TrackingEntryContextMenu'
 import UnifiedTrackingButton from '../components/UnifiedTrackingButton'
 import { formatDate } from '../utils/date'
 
@@ -17,12 +19,11 @@ const TrackingScreen = ({ onBack }) => {
   const [trackingAction, setTrackingAction] = useState(null)
   const [showGoalModal, setShowGoalModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showShareModal, setShowShareModal] = useState(false)
-  const [showCommentModal, setShowCommentModal] = useState(false)
-  const [shareMode, setShareMode] = useState('single')
+  const [showCountableModal, setShowCountableModal] = useState(false)
+  const [showContextMenu, setShowContextMenu] = useState(false)
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 })
   const [selectedEntry, setSelectedEntry] = useState(null)
   const [longPressTimer, setLongPressTimer] = useState(null)
-  const [comment, setComment] = useState('')
   const [pendingEntry, setPendingEntry] = useState(null)
   const [selectedPhotoFile, setSelectedPhotoFile] = useState(null)
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
@@ -40,35 +41,22 @@ const TrackingScreen = ({ onBack }) => {
     yourDailyJourney: 'Your daily journey',
     selectGoal: 'Select Goal',
     recentActivity: 'Recent Activity',
-    swipeToShare: 'Swipe horizontally to share',
     today: 'Today',
     yesterday: 'Yesterday',
     daysAgo: 'days ago',
-    thisWeek: 'this week',
-    total: 'total',
     completed: 'Completed',
     completedWithPhoto: 'Completed with Photo',
     notDone: 'Not Done',
     markedAsDone: 'Marked as Done!',
     doneWithPhoto: 'Done with Photo!',
     markedAsNotDone: 'Marked as Not Done',
-    addComment: 'Add Comment',
-    optional: 'Optional',
-    save: 'Save',
-    cancel: 'Cancel',
-    shareProgress: 'Share Progress',
-    shareEntry: 'Share this entry',
-    shareFeed: 'Share your feed',
-    shareNow: 'Share Now',
     currentGoal: 'Current Goal',
     allGoals: 'All Goals',
     createGoal: 'Create Goal',
     editGoal: 'Edit Goal',
     deleteGoal: 'Delete',
     goalDetails: 'Goal Details',
-    uploadingPhoto: 'Uploading photo...',
-    clickOrDrag: 'Click or drag to track',
-    dragToTrack: 'Drag to track button'
+    uploadingPhoto: 'Uploading photo...'
   }
 
   useEffect(() => {
@@ -150,7 +138,9 @@ const TrackingScreen = ({ onBack }) => {
           goals (
             id,
             name,
-            symbol
+            symbol,
+            is_countable,
+            target_unit
           )
         `)
         .eq('user_id', user.id)
@@ -174,7 +164,7 @@ const TrackingScreen = ({ onBack }) => {
   }
 
   const fetchCollaborators = async () => {
-    if (!goals[selectedGoalIndex] || goals[selectedGoalIndex].goal_type !== 'friends') {
+    if (!goals[selectedGoalIndex] || goals[selectedGoalIndex].goal_type !== 'friends_challenge') {
       setCollaborators([])
       return
     }
@@ -220,7 +210,7 @@ const TrackingScreen = ({ onBack }) => {
     const timer = setTimeout(() => {
       setSelectedGoalIndex(index)
       setShowGoalModal(true)
-    }, 2000) // Changed from 500ms to 2000ms (2 seconds)
+    }, 2000) // 2 seconds
     setLongPressTimer(timer)
   }
 
@@ -229,6 +219,17 @@ const TrackingScreen = ({ onBack }) => {
       clearTimeout(longPressTimer)
       setLongPressTimer(null)
     }
+  }
+
+  // Entry long press for context menu
+  const handleEntryLongPress = (entry, event) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    setContextMenuPosition({
+      x: event.clientX || rect.right - 50,
+      y: event.clientY || rect.top
+    })
+    setSelectedEntry(entry)
+    setShowContextMenu(true)
   }
 
   // Photo upload with enhanced error handling and debugging
@@ -280,75 +281,6 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  const uploadPhotoWithOverlay = async (file, text) => {
-    try {
-      setUploadingPhoto(true)
-      console.log('Starting photo upload with overlay:', file.name, text)
-
-      const imageUrl = URL.createObjectURL(file)
-      const img = await new Promise((resolve, reject) => {
-        const image = new Image()
-        image.onload = () => resolve(image)
-        image.onerror = reject
-        image.src = imageUrl
-      })
-
-      const canvas = document.createElement('canvas')
-      canvas.width = img.width
-      canvas.height = img.height
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0)
-
-      if (text) {
-        const fontSize = Math.floor(canvas.width / 15)
-        ctx.font = `bold ${fontSize}px sans-serif`
-        ctx.fillStyle = 'white'
-        ctx.textAlign = 'center'
-        ctx.strokeStyle = 'rgba(0,0,0,0.7)'
-        ctx.lineWidth = fontSize * 0.1
-        const x = canvas.width / 2
-        const y = canvas.height - fontSize * 1.5
-        ctx.strokeText(text, x, y)
-        ctx.fillText(text, x, y)
-      }
-
-      const blob = await new Promise((resolve) =>
-        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.95)
-      )
-
-      URL.revokeObjectURL(imageUrl)
-
-      const fileName = `${selectedGoal.id}_${Date.now()}.jpg`
-      const filePath = `goal-photos/${fileName}`
-
-      console.log('Uploading processed image to:', filePath)
-
-      const { error: uploadError } = await supabase.storage
-        .from('goal-photos')
-        .upload(filePath, blob, {
-          cacheControl: '3600',
-          upsert: false
-        })
-
-      if (uploadError) {
-        console.error('Upload error:', uploadError)
-        throw uploadError
-      }
-
-      const { data: urlData } = supabase.storage
-        .from('goal-photos')
-        .getPublicUrl(filePath)
-
-      console.log('Processed photo uploaded successfully:', urlData.publicUrl)
-      return urlData.publicUrl
-    } catch (error) {
-      console.error('Error uploading photo with overlay:', error)
-      throw error
-    } finally {
-      setUploadingPhoto(false)
-    }
-  }
-
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0]
     if (!file || !selectedGoal) return
@@ -358,50 +290,56 @@ const TrackingScreen = ({ onBack }) => {
     setSelectedPhotoFile(file)
     setPhotoPreviewUrl(URL.createObjectURL(file))
     setPendingEntry({ status: 'done_with_photo' })
-    setShowCommentModal(true)
+    
+    if (selectedGoal.is_countable) {
+      setShowCountableModal(true)
+    } else {
+      // For non-countable goals, save directly
+      saveEntry({ status: 'done_with_photo' })
+    }
 
     event.target.value = ''
   }
 
-  const saveEntry = async (entry = pendingEntry) => {
-    if (!entry || !selectedGoal) return
+  const saveEntry = async (entryData) => {
+    if (!selectedGoal) return
 
     try {
-      console.log('Saving entry:', entry)
+      console.log('Saving entry:', entryData)
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       
       if (userError || !user) {
         throw new Error('You must be logged in to track goals')
       }
 
-      let photoUrl = entry.photo_url
+      let photoUrl = null
 
-      if (entry.status === 'done_with_photo' && selectedPhotoFile) {
+      if (entryData.status === 'done_with_photo' && selectedPhotoFile) {
         console.log('Processing photo upload...')
-        photoUrl = await uploadPhotoWithOverlay(selectedPhotoFile, comment)
+        photoUrl = await uploadPhoto(selectedPhotoFile)
         console.log('Photo uploaded successfully:', photoUrl)
       }
 
-      const entryData = {
+      const finalEntryData = {
         goal_id: selectedGoal.id,
         user_id: user.id,
-        status: entry.status,
-        completed_at: new Date().toISOString()
+        status: entryData.status,
+        completed_at: new Date().toISOString(),
+        quantity: entryData.quantity || 1,
+        duration_minutes: entryData.duration_minutes || null,
+        comment: entryData.comment || null,
+        notes: entryData.notes || null
       }
 
       if (photoUrl) {
-        entryData.photo_url = photoUrl
+        finalEntryData.photo_url = photoUrl
       }
 
-      if (comment.trim()) {
-        entryData.comment = comment.trim()
-      }
-
-      console.log('Inserting entry data:', entryData)
+      console.log('Inserting entry data:', finalEntryData)
 
       const { data, error } = await supabase
         .from('goal_entries')
-        .insert([entryData])
+        .insert([finalEntryData])
         .select()
 
       if (error) {
@@ -418,19 +356,17 @@ const TrackingScreen = ({ onBack }) => {
         URL.revokeObjectURL(photoPreviewUrl)
         setPhotoPreviewUrl('')
       }
-      setComment('')
-      setShowCommentModal(false)
+      setShowCountableModal(false)
       
       // Refresh entries
       fetchEntries()
 
       // Show success feedback
-      setTrackingAction(entry.status)
+      setTrackingAction(entryData.status)
       setTimeout(() => setTrackingAction(null), 2000)
 
     } catch (error) {
       console.error('Error saving entry:', error)
-      // Show error to user
       alert(`Error saving entry: ${error.message}`)
     }
   }
@@ -445,9 +381,9 @@ const TrackingScreen = ({ onBack }) => {
       fileInputRef.current?.click()
     } else {
       const entry = { status: action }
-      if (needsComment) {
+      if (selectedGoal.is_countable || needsComment) {
         setPendingEntry(entry)
-        setShowCommentModal(true)
+        setShowCountableModal(true)
       } else {
         await saveEntry(entry)
       }
@@ -470,22 +406,33 @@ const TrackingScreen = ({ onBack }) => {
     if (action) action()
   }
 
-  // Feed swipe handler for sharing
-  const feedDragHandler = useDrag(
-    ({ active, movement: [mx], direction: [dx], velocity: [vx] }) => {
-      if (!active && Math.abs(vx) > 0.5 && Math.abs(mx) > 100) {
-        if (dx > 0) {
-          // Swipe right - share feed
-          setShareMode('feed')
-          setShowShareModal(true)
-        } else {
-          // Swipe left - share single
-          setShareMode('single')
-          setShowShareModal(true)
-        }
-      }
+  const handleGoalCreated = (newGoal) => {
+    setGoals(prev => [newGoal, ...prev])
+    setSelectedGoalIndex(0)
+    setShowCreateModal(false)
+    fetchEntries()
+  }
+
+  const handleEntryEdit = (entry) => {
+    // Implement entry editing
+    console.log('Edit entry:', entry)
+  }
+
+  const handleEntryDelete = (entryId) => {
+    setEntries(prev => prev.filter(e => e.id !== entryId))
+    setShowContextMenu(false)
+  }
+
+  const getGoalTypeIcon = (goalType) => {
+    switch (goalType) {
+      case 'friends_challenge':
+        return <Users className="w-3 h-3 text-blue-500" />
+      case 'public_challenge':
+        return <Globe className="w-3 h-3 text-green-500" />
+      default:
+        return null
     }
-  )
+  }
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -534,112 +481,6 @@ const TrackingScreen = ({ onBack }) => {
         return { text: t.doneWithPhoto, color: 'from-primary-500 to-primary-600', icon: Camera }
       case 'not_done':
         return { text: t.markedAsNotDone, color: 'from-error-500 to-error-600', icon: X }
-      default:
-        return null
-    }
-  }
-
-  // WhatsApp sharing with image generation
-  const generateShareImage = async (entry) => {
-    const canvas = canvasRef.current
-    if (!canvas) return null
-
-    const ctx = canvas.getContext('2d')
-    canvas.width = 800
-    canvas.height = 600
-
-    // Create gradient background
-    const gradient = ctx.createLinearGradient(0, 0, 800, 600)
-    gradient.addColorStop(0, '#f97316')
-    gradient.addColorStop(0.5, '#ec4899')
-    gradient.addColorStop(1, '#8b5cf6')
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, 800, 600)
-
-    // Add goal emoji/symbol
-    ctx.font = 'bold 120px Arial'
-    ctx.textAlign = 'center'
-    ctx.fillStyle = '#ffffff'
-    const emoji = entry.goals?.symbol || '🎯'
-    ctx.fillText(emoji, 400, 180)
-
-    // Add goal title
-    ctx.font = 'bold 48px Arial'
-    ctx.fillStyle = '#ffffff'
-    ctx.fillText(entry.goals?.name || 'Goal', 400, 260)
-
-    // Add status
-    ctx.font = '36px Arial'
-    ctx.fillStyle = '#e2e8f0'
-    ctx.fillText(getStatusText(entry.status), 400, 320)
-
-    // Add date
-    ctx.font = '28px Arial'
-    const date = formatDate(entry.completed_at, {
-      today: t.today,
-      yesterday: t.yesterday,
-      daysAgo: t.daysAgo,
-    })
-    ctx.fillText(date, 400, 370)
-
-    // Add MindStory branding
-    ctx.font = '24px Arial'
-    ctx.fillStyle = '#cbd5e0'
-    ctx.fillText('MindStory', 400, 550)
-
-    return canvas.toDataURL('image/png')
-  }
-
-  const shareToWhatsApp = async (entry) => {
-    try {
-      const shareText = `🎯 ${entry.goals?.name || 'Goal'}\n${getStatusText(entry.status)} on ${formatDate(entry.completed_at, {
-        today: t.today,
-        yesterday: t.yesterday,
-        daysAgo: t.daysAgo,
-      })}\n\n#MindStory #Goals #Progress`
-      
-      // Generate image
-      const imageDataUrl = await generateShareImage(entry)
-      
-      if (navigator.share && imageDataUrl) {
-        try {
-          const response = await fetch(imageDataUrl)
-          const blob = await response.blob()
-          const file = new File([blob], 'mindstory-progress.png', { type: 'image/png' })
-          
-          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-            await navigator.share({
-              title: `${entry.goals?.name} - ${getStatusText(entry.status)}`,
-              text: shareText,
-              files: [file]
-            })
-            return
-          }
-        } catch (shareError) {
-          console.error('Error sharing with files:', shareError)
-        }
-      }
-
-      // Fallback to WhatsApp Web
-      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`
-      window.open(whatsappUrl, '_blank')
-      
-    } catch (error) {
-      console.error('Error sharing to WhatsApp:', error)
-    }
-  }
-
-  const handleGoalCreated = (newGoal) => {
-    setGoals(prev => [newGoal, ...prev])
-    setSelectedGoalIndex(0)
-    setShowCreateModal(false)
-    fetchEntries()
-  }
-
-  const getGoalTypeIcon = (goalType) => {
-    switch (goalType) {
-      case 'friends':
-        return <Users className="w-3 h-3 text-blue-500" />
       default:
         return null
     }
@@ -812,8 +653,8 @@ const TrackingScreen = ({ onBack }) => {
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   
-                  {/* Friends Goal Indicator */}
-                  {goal.goal_type === 'friends' && (
+                  {/* Goal Type Indicator */}
+                  {(goal.goal_type === 'friends_challenge' || goal.goal_type === 'public_challenge') && (
                     <div className="absolute top-4 right-4 z-20">
                       <div className="p-2 bg-white/20 backdrop-blur-sm rounded-full">
                         {getGoalTypeIcon(goal.goal_type)}
@@ -842,6 +683,20 @@ const TrackingScreen = ({ onBack }) => {
                       )}
                     </div>
 
+                    {/* Goal Details */}
+                    <div className="space-y-2 mb-6">
+                      {goal.is_countable && (
+                        <div className={`text-xs ${isSelected ? 'text-white/80' : 'text-gray-500'}`}>
+                          Countable: {goal.target_unit || 'units'}
+                        </div>
+                      )}
+                      {goal.total_target && (
+                        <div className={`text-xs ${isSelected ? 'text-white/80' : 'text-gray-500'}`}>
+                          Target: {goal.total_target} {goal.target_unit || 'completions'}
+                        </div>
+                      )}
+                    </div>
+
                     {isSelected && (
                       <div className="text-center">
                         <div className="inline-flex items-center px-4 sm:px-6 py-2 sm:py-3 rounded-full text-sm sm:text-base font-semibold bg-white/20 text-white">
@@ -859,7 +714,7 @@ const TrackingScreen = ({ onBack }) => {
       </section>
 
       {/* Unified Tracking Interface - Adjusted positioning to bottom-10 */}
-      <section className="relative z-20 flex justify-center py-20 sm:py-24 lg:py-28"> {/* Changed from py-12 sm:py-16 lg:py-20 */}
+      <section className="relative z-20 flex justify-center py-20 sm:py-24 lg:py-28">
         <div className="text-center">
           <UnifiedTrackingButton
             onTrackingAction={handleTrackingAction}
@@ -893,12 +748,10 @@ const TrackingScreen = ({ onBack }) => {
         </div>
       </section>
 
-      {/* Tracking Feed - Updated with 1:1 aspect ratio for photos */}
+      {/* Tracking Feed - Updated with enhanced entry display */}
       <div 
-        {...feedDragHandler()}
         ref={feedRef}
         className="relative z-10 bg-white/60 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl shadow-premium-xl min-h-screen pt-12 sm:pt-16 px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32"
-        style={{ touchAction: 'pan-y' }}
       >
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-6 sm:mb-8">
@@ -924,20 +777,11 @@ const TrackingScreen = ({ onBack }) => {
                 <Filter className="w-3 h-3 inline mr-1" />
                 {filterMode === 'current' ? t.currentGoal : t.allGoals}
               </button>
-              <button
-                onClick={() => {
-                  setShareMode('feed')
-                  setShowShareModal(true)
-                }}
-                className="p-3 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-xl"
-              >
-                <Share2 className="w-5 h-5 text-gray-600" />
-              </button>
             </div>
           </div>
 
           {/* Collaborator Avatars for Friends Goals */}
-          {selectedGoal?.goal_type === 'friends' && collaborators.length > 0 && (
+          {selectedGoal?.goal_type === 'friends_challenge' && collaborators.length > 0 && (
             <div className="flex items-center space-x-2 mb-6">
               <span className="text-sm text-gray-600 mr-2">With:</span>
               <div className="flex -space-x-2 overflow-hidden">
@@ -962,75 +806,113 @@ const TrackingScreen = ({ onBack }) => {
           )}
 
           <div className="space-y-4 sm:space-y-6">
-            {entries.map((entry) => (
-              <div
-                key={entry.id}
-                onClick={() => setSelectedEntry(entry)}
-                className="glass-card p-6 sm:p-8 rounded-2xl sm:rounded-3xl hover:shadow-premium-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer group relative overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                
-                <div className="relative z-10">
-                  {/* Header */}
-                  <div className="flex items-center justify-between mb-4 sm:mb-6">
-                    <div className="flex items-center space-x-3 sm:space-x-4">
-                      <div className="text-2xl sm:text-3xl">{entry.goals?.symbol || '🎯'}</div>
-                      <div>
-                        <h4 className="font-bold text-lg sm:text-xl text-gray-800">{entry.goals?.name}</h4>
-                        <p className="text-sm sm:text-base text-gray-600">{formatDate(entry.completed_at, {
-                          today: t.today,
-                          yesterday: t.yesterday,
-                          daysAgo: t.daysAgo,
-                        })}</p>
+            {entries.map((entry) => {
+              const { data: { user } } = supabase.auth.getUser()
+              const canEdit = user && entry.user_id === user.id
+
+              return (
+                <div
+                  key={entry.id}
+                  onContextMenu={(e) => {
+                    e.preventDefault()
+                    handleEntryLongPress(entry, e)
+                  }}
+                  onTouchStart={(e) => {
+                    const timer = setTimeout(() => {
+                      handleEntryLongPress(entry, e)
+                    }, 800)
+                    e.currentTarget.dataset.timer = timer
+                  }}
+                  onTouchEnd={(e) => {
+                    const timer = e.currentTarget.dataset.timer
+                    if (timer) clearTimeout(timer)
+                  }}
+                  className="glass-card p-6 sm:p-8 rounded-2xl sm:rounded-3xl hover:shadow-premium-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer group relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  
+                  <div className="relative z-10">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                      <div className="flex items-center space-x-3 sm:space-x-4">
+                        <div className="text-2xl sm:text-3xl">{entry.goals?.symbol || '🎯'}</div>
+                        <div>
+                          <h4 className="font-bold text-lg sm:text-xl text-gray-800">{entry.goals?.name}</h4>
+                          <p className="text-sm sm:text-base text-gray-600">{formatDate(entry.completed_at, {
+                            today: t.today,
+                            yesterday: t.yesterday,
+                            daysAgo: t.daysAgo,
+                          })}</p>
+                        </div>
+                      </div>
+                      
+                      <div className={`p-3 rounded-full bg-gradient-to-r ${getStatusColor(entry.status)} shadow-premium`}>
+                        {getStatusIcon(entry.status)}
                       </div>
                     </div>
-                    
-                    <div className={`p-3 rounded-full bg-gradient-to-r ${getStatusColor(entry.status)} shadow-premium`}>
-                      {getStatusIcon(entry.status)}
+
+                    {/* Quantity/Duration Display for Countable Goals */}
+                    {entry.goals?.is_countable && entry.quantity && entry.quantity > 1 && (
+                      <div className="mb-4 p-3 bg-gray-50 rounded-xl">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">Amount:</span>
+                          <span className="font-semibold text-gray-800">
+                            {entry.quantity} {entry.goals.target_unit || 'units'}
+                          </span>
+                        </div>
+                        {entry.duration_minutes && (
+                          <div className="flex items-center justify-between text-sm mt-1">
+                            <span className="text-gray-600">Duration:</span>
+                            <span className="font-semibold text-gray-800">
+                              {entry.duration_minutes} minutes
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Photo - Updated to 1:1 aspect ratio */}
+                    {entry.photo_url && (
+                      <div className="mb-4 sm:mb-6">
+                        <img
+                          src={entry.photo_url}
+                          alt="Progress photo"
+                          className="w-full aspect-square object-cover rounded-xl sm:rounded-2xl shadow-premium"
+                        />
+                      </div>
+                    )}
+
+                    {/* Comment */}
+                    {entry.comment && (
+                      <p className="text-gray-700 mb-4 sm:mb-6 text-base sm:text-lg leading-relaxed">
+                        {entry.comment}
+                      </p>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-gray-500">
+                        {new Date(entry.completed_at).toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleEntryLongPress(entry, e)
+                        }}
+                        className="p-3 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-xl"
+                      >
+                        <MessageCircle className="w-4 sm:w-5 h-4 sm:h-5 text-gray-600" />
+                      </button>
                     </div>
-                  </div>
-
-                  {/* Photo - Updated to 1:1 aspect ratio */}
-                  {entry.photo_url && (
-                    <div className="mb-4 sm:mb-6">
-                      <img
-                        src={entry.photo_url}
-                        alt="Progress photo"
-                        className="w-full aspect-square object-cover rounded-xl sm:rounded-2xl shadow-premium"
-                      />
-                    </div>
-                  )}
-
-                  {/* Comment */}
-                  {entry.comment && (
-                    <p className="text-gray-700 mb-4 sm:mb-6 text-base sm:text-lg leading-relaxed">
-                      {entry.comment}
-                    </p>
-                  )}
-
-                  {/* Actions */}
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                      {new Date(entry.completed_at).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                        hour12: true
-                      })}
-                    </div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        shareToWhatsApp(entry)
-                      }}
-                      className="p-3 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-xl"
-                    >
-                      <Share2 className="w-4 sm:w-5 h-4 sm:h-5 text-gray-600" />
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
 
             {entries.length === 0 && (
               <div className="text-center py-16 text-gray-500">
@@ -1043,86 +925,41 @@ const TrackingScreen = ({ onBack }) => {
         </div>
       </div>
 
-      {/* Comment Modal */}
-      {showCommentModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center z-50 p-4">
-          <div className="premium-card max-w-lg w-full p-6 sm:p-8 animate-scale-in">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-3 bg-gradient-to-br from-primary-500 to-secondary-600 rounded-xl">
-                  <MessageCircle className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800">{t.addComment}</h3>
-                  <p className="text-sm text-gray-600">{t.optional}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  setShowCommentModal(false)
-                  setPendingEntry(null)
-                  setComment('')
-                }}
-                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              {photoPreviewUrl && (
-                <div className="relative">
-                  <img
-                    src={photoPreviewUrl}
-                    alt="preview"
-                    className="w-full h-60 object-cover rounded-xl"
-                  />
-                  {comment && (
-                    <div className="absolute inset-0 flex items-end justify-center p-4">
-                      <span className="bg-black/60 text-white px-2 py-1 rounded text-lg font-semibold">
-                        {comment}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="How did it go? Any thoughts to share..."
-                className="input-premium resize-none h-24"
-                autoFocus
-              />
-
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => {
-                    setShowCommentModal(false)
-                    setPendingEntry(null)
-                    setComment('')
-                  }}
-                  className="btn-secondary-premium flex-1"
-                >
-                  {t.cancel}
-                </button>
-                <button
-                  onClick={saveEntry}
-                  className="btn-premium flex-1"
-                  disabled={uploadingPhoto}
-                >
-                  {uploadingPhoto ? 'Saving...' : t.save}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create Goal Modal */}
-      <CreateGoalModal
+      {/* Enhanced Create Goal Modal */}
+      <EnhancedCreateGoalModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onGoalCreated={handleGoalCreated}
+      />
+
+      {/* Countable Tracking Modal */}
+      <CountableTrackingModal
+        isOpen={showCountableModal}
+        onClose={() => {
+          setShowCountableModal(false)
+          setPendingEntry(null)
+          if (photoPreviewUrl) {
+            URL.revokeObjectURL(photoPreviewUrl)
+            setPhotoPreviewUrl('')
+          }
+          setSelectedPhotoFile(null)
+        }}
+        onSave={saveEntry}
+        goal={selectedGoal}
+        action={pendingEntry?.status}
+        photoFile={selectedPhotoFile}
+        photoPreviewUrl={photoPreviewUrl}
+      />
+
+      {/* Context Menu for Entry Management */}
+      <TrackingEntryContextMenu
+        entry={selectedEntry}
+        isOpen={showContextMenu}
+        onClose={() => setShowContextMenu(false)}
+        onEdit={handleEntryEdit}
+        onDelete={handleEntryDelete}
+        position={contextMenuPosition}
+        canEdit={selectedEntry?.user_id === userProfile?.user_id}
       />
 
       {/* Goal Detail Modal */}
@@ -1149,6 +986,31 @@ const TrackingScreen = ({ onBack }) => {
               {selectedGoal.description && (
                 <p className="text-gray-700">{selectedGoal.description}</p>
               )}
+
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-500">Type:</span>
+                  <span className="ml-2 font-medium capitalize">{selectedGoal.goal_type?.replace('_', ' ')}</span>
+                </div>
+                {selectedGoal.is_countable && (
+                  <div>
+                    <span className="text-gray-500">Unit:</span>
+                    <span className="ml-2 font-medium">{selectedGoal.target_unit}</span>
+                  </div>
+                )}
+                {selectedGoal.total_target && (
+                  <div>
+                    <span className="text-gray-500">Target:</span>
+                    <span className="ml-2 font-medium">{selectedGoal.total_target}</span>
+                  </div>
+                )}
+                {selectedGoal.frequency && (
+                  <div>
+                    <span className="text-gray-500">Frequency:</span>
+                    <span className="ml-2 font-medium">{selectedGoal.frequency}x/week</span>
+                  </div>
+                )}
+              </div>
 
               <div className="flex space-x-4">
                 <button className="btn-secondary-premium flex-1 flex items-center justify-center space-x-2">
