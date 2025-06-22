@@ -735,7 +735,7 @@ const TrackingScreen = ({ onBack }) => {
       <div 
         {...feedDragHandler()}
         ref={feedRef}
-        className="relative z-10 bg-white/60 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl shadow-premium-xl min-h-screen pt-8 px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32"
+        className="relative z-10 bg-white/60 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl shadow-premium-xl min-h-screen pt-12 sm:pt-16 px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32"
         style={{ touchAction: 'pan-y' }}
       >
         <div className="max-w-4xl mx-auto">
