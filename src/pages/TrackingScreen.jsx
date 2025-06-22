@@ -24,6 +24,8 @@ const TrackingScreen = ({ onBack }) => {
   const [longPressTimer, setLongPressTimer] = useState(null)
   const [comment, setComment] = useState('')
   const [pendingEntry, setPendingEntry] = useState(null)
+  const [selectedPhotoFile, setSelectedPhotoFile] = useState(null)
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
   const [filterMode, setFilterMode] = useState('current') // 'current' or 'all'
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const goalScrollRef = useRef(null)
@@ -258,26 +260,79 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  const handleFileSelect = async (event) => {
+  const uploadPhotoWithOverlay = async (file, text) => {
+    try {
+      setUploadingPhoto(true)
+
+      const imageUrl = URL.createObjectURL(file)
+      const img = await new Promise((resolve, reject) => {
+        const image = new Image()
+        image.onload = () => resolve(image)
+        image.onerror = reject
+        image.src = imageUrl
+      })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const ctx = canvas.getContext('2d')
+      ctx.drawImage(img, 0, 0)
+
+      if (text) {
+        const fontSize = Math.floor(canvas.width / 15)
+        ctx.font = `bold ${fontSize}px sans-serif`
+        ctx.fillStyle = 'white'
+        ctx.textAlign = 'center'
+        ctx.strokeStyle = 'rgba(0,0,0,0.7)'
+        ctx.lineWidth = fontSize * 0.1
+        const x = canvas.width / 2
+        const y = canvas.height - fontSize * 1.5
+        ctx.strokeText(text, x, y)
+        ctx.fillText(text, x, y)
+      }
+
+      const blob = await new Promise((resolve) =>
+        canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.95)
+      )
+
+      URL.revokeObjectURL(imageUrl)
+
+      const fileName = `${selectedGoal.id}_${Date.now()}.jpg`
+      const filePath = `goal-photos/${fileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('goal-photos')
+        .upload(filePath, blob)
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage
+        .from('goal-photos')
+        .getPublicUrl(filePath)
+
+      return urlData.publicUrl
+    } catch (error) {
+      console.error('Error uploading photo with overlay:', error)
+      throw error
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const handleFileSelect = (event) => {
     const file = event.target.files?.[0]
     if (!file || !selectedGoal) return
 
-    try {
-      const photoUrl = await uploadPhoto(file)
-      setPendingEntry({
-        status: 'done_with_photo',
-        photo_url: photoUrl
-      })
-      setShowCommentModal(true)
-    } catch (error) {
-      console.error('Error handling photo upload:', error)
-    }
+    setSelectedPhotoFile(file)
+    setPhotoPreviewUrl(URL.createObjectURL(file))
+    setPendingEntry({ status: 'done_with_photo' })
+    setShowCommentModal(true)
 
     event.target.value = ''
   }
 
-  const saveEntry = async () => {
-    if (!pendingEntry || !selectedGoal) return
+  const saveEntry = async (entry = pendingEntry) => {
+    if (!entry || !selectedGoal) return
 
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
@@ -286,15 +341,21 @@ const TrackingScreen = ({ onBack }) => {
         throw new Error('You must be logged in to track goals')
       }
 
+      let photoUrl = entry.photo_url
+
+      if (entry.status === 'done_with_photo' && selectedPhotoFile) {
+        photoUrl = await uploadPhotoWithOverlay(selectedPhotoFile, comment)
+      }
+
       const entryData = {
         goal_id: selectedGoal.id,
         user_id: user.id,
-        status: pendingEntry.status,
+        status: entry.status,
         completed_at: new Date().toISOString()
       }
 
-      if (pendingEntry.photo_url) {
-        entryData.photo_url = pendingEntry.photo_url
+      if (photoUrl) {
+        entryData.photo_url = photoUrl
       }
 
       if (comment.trim()) {
@@ -312,6 +373,11 @@ const TrackingScreen = ({ onBack }) => {
 
       // Reset states
       setPendingEntry(null)
+      setSelectedPhotoFile(null)
+      if (photoPreviewUrl) {
+        URL.revokeObjectURL(photoPreviewUrl)
+        setPhotoPreviewUrl('')
+      }
       setComment('')
       setShowCommentModal(false)
       
@@ -319,7 +385,7 @@ const TrackingScreen = ({ onBack }) => {
       fetchEntries()
 
       // Show success feedback
-      setTrackingAction(pendingEntry.status)
+      setTrackingAction(entry.status)
       setTimeout(() => setTrackingAction(null), 2000)
 
     } catch (error) {
@@ -334,11 +400,12 @@ const TrackingScreen = ({ onBack }) => {
     if (action === 'done_with_photo') {
       fileInputRef.current?.click()
     } else {
-      setPendingEntry({ status: action })
+      const entry = { status: action }
       if (needsComment) {
+        setPendingEntry(entry)
         setShowCommentModal(true)
       } else {
-        await saveEntry()
+        await saveEntry(entry)
       }
     }
   }
@@ -901,6 +968,22 @@ const TrackingScreen = ({ onBack }) => {
             </div>
 
             <div className="space-y-6">
+              {photoPreviewUrl && (
+                <div className="relative">
+                  <img
+                    src={photoPreviewUrl}
+                    alt="preview"
+                    className="w-full h-60 object-cover rounded-xl"
+                  />
+                  {comment && (
+                    <div className="absolute inset-0 flex items-end justify-center p-4">
+                      <span className="bg-black/60 text-white px-2 py-1 rounded text-lg font-semibold">
+                        {comment}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
               <textarea
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
