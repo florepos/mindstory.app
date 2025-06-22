@@ -11,22 +11,37 @@ const UnifiedTrackingButton = ({
   completionCount = 0
 }) => {
   const [isDragging, setIsDragging] = useState(false)
+  const [isHolding, setIsHolding] = useState(false)
+  const [holdProgress, setHoldProgress] = useState(0)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [dragCurrent, setDragCurrent] = useState({ x: 0, y: 0 })
   const [gestureDirection, setGestureDirection] = useState(null)
   const [isPressed, setIsPressed] = useState(false)
   
   const buttonRef = useRef(null)
+  const holdTimerRef = useRef(null)
+  const holdStartTime = useRef(null)
   const dragThreshold = 30 // Reduced threshold for easier gestures
   const quickTapThreshold = 200 // Max time for quick tap
+  const holdDuration = 3000 // 3 seconds for hold action
   const tapStartTime = useRef(null)
+  const hasDraggedRef = useRef(false)
 
   // Main button animation
   const [buttonSpring, buttonApi] = useSpring(() => ({
     scale: 1,
     rotate: 0,
     glow: 0,
+    borderWidth: 4,
     config: config.gentle
+  }))
+
+  // Hold progress ring animation
+  const [progressSpring, progressApi] = useSpring(() => ({
+    progress: 0,
+    opacity: 0,
+    scale: 1,
+    config: config.slow
   }))
 
   // Direction indicators animation
@@ -36,11 +51,11 @@ const UnifiedTrackingButton = ({
     config: config.gentle
   }))
 
-  // Start drag immediately on touch/mouse down
-  const handleDragStart = useCallback((e) => {
+  // Start hold timer and drag detection
+  const handleStart = useCallback((e) => {
     if (disabled || !selectedGoal) return
 
-    console.log('🚀 IMMEDIATE drag start - no expansion needed!')
+    console.log('🚀 Touch/click started - initializing hold and drag detection')
     
     // Prevent default behaviors
     e.preventDefault()
@@ -50,23 +65,22 @@ const UnifiedTrackingButton = ({
       { x: e.touches[0].clientX, y: e.touches[0].clientY } :
       { x: e.clientX, y: e.clientY }
 
-    setIsDragging(true)
+    // Reset states
     setIsPressed(true)
     setDragStart(point)
     setDragCurrent(point)
     setGestureDirection(null)
     tapStartTime.current = Date.now()
+    hasDraggedRef.current = false
+
+    // Start hold timer and progress animation
+    startHoldTimer()
     
     // Immediate visual feedback
     buttonApi.start({
-      scale: 1.1,
-      glow: 0.5
-    })
-
-    // Show direction indicators immediately
-    indicatorApi.start({
-      opacity: 1,
-      scale: 1.1
+      scale: 1.05,
+      glow: 0.3,
+      borderWidth: 6
     })
 
     // Haptic feedback
@@ -74,11 +88,90 @@ const UnifiedTrackingButton = ({
       navigator.vibrate(50)
     }
 
-    console.log('✅ Drag started at:', point)
-  }, [disabled, selectedGoal, buttonApi, indicatorApi])
+    console.log('✅ Hold timer started, drag detection enabled')
+  }, [disabled, selectedGoal, buttonApi])
 
-  const handleDragMove = useCallback((e) => {
-    if (!isDragging) return
+  // Start the 3-second hold timer with smooth progress
+  const startHoldTimer = useCallback(() => {
+    console.log('⏱️ Starting 3-second hold timer')
+    
+    setIsHolding(true)
+    holdStartTime.current = Date.now()
+    
+    // Show progress ring
+    progressApi.start({
+      opacity: 1,
+      scale: 1.1
+    })
+
+    // Smooth progress animation
+    const updateProgress = () => {
+      if (!holdStartTime.current || hasDraggedRef.current) return
+
+      const elapsed = Date.now() - holdStartTime.current
+      const progress = Math.min((elapsed / holdDuration) * 100, 100)
+      
+      setHoldProgress(progress)
+      
+      // Update progress ring
+      progressApi.start({
+        progress: progress
+      })
+
+      // Update button scale based on progress
+      const scale = 1.05 + (progress / 100) * 0.15 // Grows from 1.05 to 1.2
+      const glow = 0.3 + (progress / 100) * 0.7 // Glow increases
+      const borderWidth = 6 + (progress / 100) * 4 // Border grows
+      
+      buttonApi.start({
+        scale: scale,
+        glow: glow,
+        borderWidth: borderWidth
+      })
+
+      if (progress < 100 && !hasDraggedRef.current) {
+        holdTimerRef.current = requestAnimationFrame(updateProgress)
+      } else if (progress >= 100 && !hasDraggedRef.current) {
+        console.log('⏰ 3-second hold completed!')
+        executeHoldAction()
+      }
+    }
+
+    holdTimerRef.current = requestAnimationFrame(updateProgress)
+  }, [progressApi, buttonApi])
+
+  // Execute action after 3-second hold (only if no dragging occurred)
+  const executeHoldAction = useCallback(() => {
+    if (hasDraggedRef.current) {
+      console.log('❌ Hold action cancelled - user dragged')
+      return
+    }
+
+    console.log('🎯 Executing 3-second hold action - increment counter')
+    
+    // Enhanced haptic feedback for hold completion
+    if (navigator.vibrate) {
+      navigator.vibrate([200, 100, 200])
+    }
+
+    // Success animation
+    buttonApi.start({
+      scale: 1.3,
+      rotate: 360,
+      glow: 2.0,
+      onRest: () => {
+        console.log('🚀 Calling onTrackingAction for hold completion')
+        if (onTrackingAction) {
+          onTrackingAction('done', false) // Hold action = simple done without comment
+        }
+        setTimeout(resetButton, 300)
+      }
+    })
+  }, [onTrackingAction, buttonApi])
+
+  // Handle drag movement
+  const handleMove = useCallback((e) => {
+    if (!isPressed) return
 
     // Prevent default behaviors
     e.preventDefault()
@@ -94,38 +187,91 @@ const UnifiedTrackingButton = ({
     const deltaY = point.y - dragStart.y
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
-    console.log('👆 Drag move:', { deltaX: Math.round(deltaX), deltaY: Math.round(deltaY), distance: Math.round(distance) })
+    // If user starts dragging, cancel hold timer and enable drag mode
+    if (distance > 15 && !hasDraggedRef.current) {
+      console.log('🖱️ Drag detected - cancelling hold timer, enabling drag mode')
+      hasDraggedRef.current = true
+      cancelHoldTimer()
+      enableDragMode()
+    }
 
-    // Determine direction as soon as we have some movement
-    if (distance > 15) {
-      let direction = null
-      const absX = Math.abs(deltaX)
-      const absY = Math.abs(deltaY)
-      
-      if (absY > absX) {
-        direction = deltaY < 0 ? 'up' : 'down'
-      } else {
-        direction = deltaX > 0 ? 'right' : 'left'
-      }
-      
-      if (direction !== 'down') { // Ignore downward gestures
-        console.log('📍 Direction detected:', direction)
-        setGestureDirection(direction)
+    if (hasDraggedRef.current) {
+      console.log('👆 Drag move:', { deltaX: Math.round(deltaX), deltaY: Math.round(deltaY), distance: Math.round(distance) })
+
+      // Determine direction for drag
+      if (distance > 15) {
+        let direction = null
+        const absX = Math.abs(deltaX)
+        const absY = Math.abs(deltaY)
         
-        // Enhanced visual feedback for direction
-        buttonApi.start({
-          scale: 1.2,
-          glow: 1.0,
-          rotate: direction === 'right' ? 10 : direction === 'left' ? -10 : 0
-        })
+        if (absY > absX) {
+          direction = deltaY < 0 ? 'up' : 'down'
+        } else {
+          direction = deltaX > 0 ? 'right' : 'left'
+        }
+        
+        if (direction !== 'down') { // Ignore downward gestures
+          console.log('📍 Drag direction detected:', direction)
+          setGestureDirection(direction)
+          
+          // Enhanced visual feedback for direction
+          buttonApi.start({
+            scale: 1.2,
+            glow: 1.0,
+            rotate: direction === 'right' ? 10 : direction === 'left' ? -10 : 0
+          })
+        }
       }
     }
-  }, [isDragging, dragStart, buttonApi])
+  }, [isPressed, dragStart, buttonApi])
 
-  const handleDragEnd = useCallback((e) => {
-    if (!isDragging) return
+  // Cancel hold timer and switch to drag mode
+  const cancelHoldTimer = useCallback(() => {
+    console.log('⏹️ Cancelling hold timer - switching to drag mode')
+    
+    if (holdTimerRef.current) {
+      cancelAnimationFrame(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    
+    setIsHolding(false)
+    setHoldProgress(0)
+    holdStartTime.current = null
+    
+    // Hide progress ring
+    progressApi.start({
+      opacity: 0,
+      progress: 0,
+      scale: 1
+    })
+  }, [progressApi])
 
-    console.log('🏁 Drag end')
+  // Enable drag mode with visual indicators
+  const enableDragMode = useCallback(() => {
+    console.log('🎯 Enabling drag mode - showing direction indicators')
+    
+    setIsDragging(true)
+    
+    // Show direction indicators
+    indicatorApi.start({
+      opacity: 1,
+      scale: 1.1
+    })
+    
+    // Reset button to drag-ready state
+    buttonApi.start({
+      scale: 1.1,
+      glow: 0.5,
+      borderWidth: 6,
+      rotate: 0
+    })
+  }, [indicatorApi, buttonApi])
+
+  // Handle end of interaction
+  const handleEnd = useCallback((e) => {
+    if (!isPressed) return
+
+    console.log('🏁 Touch/click ended')
     
     // Prevent default behaviors
     e.preventDefault()
@@ -136,28 +282,45 @@ const UnifiedTrackingButton = ({
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
     const tapDuration = Date.now() - (tapStartTime.current || 0)
 
-    console.log('📊 Final gesture:', { 
+    console.log('📊 Final interaction:', { 
       distance: Math.round(distance), 
       threshold: dragThreshold,
       direction: gestureDirection,
-      tapDuration
+      tapDuration,
+      hasDragged: hasDraggedRef.current,
+      holdProgress: Math.round(holdProgress)
     })
 
-    // Check if it's a quick tap (for default action)
-    if (distance < dragThreshold && tapDuration < quickTapThreshold) {
+    // Cancel hold timer if still running
+    if (holdTimerRef.current) {
+      cancelAnimationFrame(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+
+    // If user dragged, execute drag action
+    if (hasDraggedRef.current && distance >= dragThreshold && gestureDirection && gestureDirection !== 'down') {
+      console.log('✅ Drag gesture completed, executing action for direction:', gestureDirection)
+      executeDragAction(gestureDirection)
+    } 
+    // If it was a quick tap (and no hold was completed)
+    else if (!hasDraggedRef.current && distance < dragThreshold && tapDuration < quickTapThreshold && holdProgress < 100) {
       console.log('⚡ Quick tap detected - executing default action')
-      executeAction('done', true) // Default to done with comment
-    } else if (distance >= dragThreshold && gestureDirection && gestureDirection !== 'down') {
-      console.log('✅ Gesture threshold met, executing action for direction:', gestureDirection)
-      executeAction(gestureDirection)
-    } else {
-      console.log('❌ Gesture not recognized, resetting')
+      executeDragAction('done', true) // Quick tap = done with comment
+    }
+    // If hold was in progress but not completed, just reset
+    else if (holdProgress > 0 && holdProgress < 100) {
+      console.log('⏸️ Hold cancelled before completion - resetting')
       resetButton()
     }
-  }, [isDragging, dragCurrent, dragStart, gestureDirection])
+    // Otherwise just reset
+    else {
+      console.log('🔄 Interaction ended - resetting to default state')
+      resetButton()
+    }
+  }, [isPressed, dragCurrent, dragStart, gestureDirection, holdProgress])
 
-  // Execute the appropriate action based on gesture
-  const executeAction = useCallback((directionOrAction, needsComment = false) => {
+  // Execute drag action based on direction
+  const executeDragAction = useCallback((directionOrAction, needsComment = false) => {
     if (!onTrackingAction) {
       console.error('❌ onTrackingAction callback not provided')
       resetButton()
@@ -221,37 +384,55 @@ const UnifiedTrackingButton = ({
 
   // Reset button to initial state
   const resetButton = useCallback(() => {
-    console.log('🔄 Resetting button state')
+    console.log('🔄 Resetting button to initial state')
     
+    // Cancel any running timers
+    if (holdTimerRef.current) {
+      cancelAnimationFrame(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    
+    // Reset all states
     setIsDragging(false)
     setIsPressed(false)
+    setIsHolding(false)
+    setHoldProgress(0)
     setGestureDirection(null)
     setDragStart({ x: 0, y: 0 })
     setDragCurrent({ x: 0, y: 0 })
     tapStartTime.current = null
+    holdStartTime.current = null
+    hasDraggedRef.current = false
 
     // Reset animations
     buttonApi.start({
       scale: 1,
       rotate: 0,
-      glow: 0
+      glow: 0,
+      borderWidth: 4
+    })
+
+    progressApi.start({
+      progress: 0,
+      opacity: 0,
+      scale: 1
     })
 
     indicatorApi.start({
       opacity: 0,
       scale: 1
     })
-  }, [buttonApi, indicatorApi])
+  }, [buttonApi, progressApi, indicatorApi])
 
-  // Global event listeners for drag moves and ends
+  // Global event listeners for moves and ends
   useEffect(() => {
-    if (isDragging) {
+    if (isPressed) {
       const handleGlobalMove = (e) => {
-        handleDragMove(e)
+        handleMove(e)
       }
 
       const handleGlobalEnd = (e) => {
-        handleDragEnd(e)
+        handleEnd(e)
       }
 
       // Add global listeners with passive: false to allow preventDefault
@@ -271,7 +452,7 @@ const UnifiedTrackingButton = ({
         document.removeEventListener('mouseup', handleGlobalEnd)
       }
     }
-  }, [isDragging, handleDragMove, handleDragEnd])
+  }, [isPressed, handleMove, handleEnd])
 
   const getGestureColor = (direction) => {
     switch (direction) {
@@ -293,6 +474,43 @@ const UnifiedTrackingButton = ({
 
   return (
     <div className={`relative flex flex-col items-center ${className}`} style={{ margin: '60px 0' }}>
+      {/* Hold Progress Ring */}
+      <animated.div
+        style={{
+          opacity: progressSpring.opacity,
+          transform: progressSpring.scale.to(s => `scale(${s})`)
+        }}
+        className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
+      >
+        <svg className="w-48 h-48 sm:w-56 sm:h-56 transform -rotate-90" viewBox="0 0 200 200">
+          {/* Background ring */}
+          <circle
+            cx="100"
+            cy="100"
+            r="90"
+            stroke="currentColor"
+            strokeWidth="4"
+            fill="none"
+            className="text-gray-200/50"
+          />
+          {/* Progress ring */}
+          <animated.circle
+            cx="100"
+            cy="100"
+            r="90"
+            stroke="currentColor"
+            strokeWidth="6"
+            fill="none"
+            className="text-primary-500"
+            strokeLinecap="round"
+            strokeDasharray={`${2 * Math.PI * 90}`}
+            strokeDashoffset={progressSpring.progress.to(p => 
+              2 * Math.PI * 90 * (1 - p / 100)
+            )}
+          />
+        </svg>
+      </animated.div>
+
       {/* Direction Indicators - Show when dragging */}
       <animated.div
         style={{
@@ -350,7 +568,7 @@ const UnifiedTrackingButton = ({
         </div>
       )}
 
-      {/* Main Button - SINGLE TOUCH SYSTEM */}
+      {/* Main Button - HYBRID SYSTEM: Hold OR Drag */}
       <animated.button
         ref={buttonRef}
         className={`
@@ -367,6 +585,9 @@ const UnifiedTrackingButton = ({
           boxShadow: buttonSpring.glow.to(g => 
             `0 8px 32px rgba(0, 0, 0, 0.15), 0 0 ${32 + g * 20}px rgba(249, 115, 22, ${g})`
           ),
+          borderWidth: buttonSpring.borderWidth.to(w => `${w}px`),
+          borderColor: isPressed ? '#f97316' : 'transparent',
+          borderStyle: 'solid',
           touchAction: 'none',
           userSelect: 'none',
           WebkitUserSelect: 'none',
@@ -374,15 +595,15 @@ const UnifiedTrackingButton = ({
           msUserSelect: 'none'
         }}
         // Pointer Events (modern browsers)
-        onPointerDown={handleDragStart}
+        onPointerDown={handleStart}
         // Touch Events (mobile)
-        onTouchStart={handleDragStart}
+        onTouchStart={handleStart}
         // Mouse Events (desktop fallback)
-        onMouseDown={handleDragStart}
+        onMouseDown={handleStart}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
         tabIndex={0}
-        aria-label={selectedGoal ? "Tap to complete or drag for options" : "Select a goal first"}
+        aria-label={selectedGoal ? "Tap, hold 3 seconds, or drag for options" : "Select a goal first"}
       >
         {/* Button Content */}
         <div className="flex items-center justify-center text-white relative z-10">
@@ -409,7 +630,9 @@ const UnifiedTrackingButton = ({
       <div className="absolute -bottom-32 sm:-bottom-40 left-1/2 transform -translate-x-1/2 text-center">
         <div className="space-y-2 sm:space-y-4">
           <p className="text-lg sm:text-xl font-bold text-gray-800">
-            {isDragging ? 'Release to complete' : 'Tap or drag to track'}
+            {isHolding ? `Hold for ${Math.ceil((holdDuration - holdProgress * holdDuration / 100) / 1000)}s` :
+             isDragging ? 'Release to complete' : 
+             'Tap, hold 3s, or drag'}
           </p>
           <div className="hidden sm:flex items-center justify-center space-x-6 sm:space-x-8 text-sm text-gray-600">
             <div className="flex flex-col items-center space-y-1">
@@ -424,10 +647,14 @@ const UnifiedTrackingButton = ({
               <div className="w-3 h-3 bg-error-400 rounded-full"></div>
               <span className="font-medium">Left: Skip</span>
             </div>
+            <div className="flex flex-col items-center space-y-1">
+              <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+              <span className="font-medium">Hold: Quick</span>
+            </div>
           </div>
           {/* Mobile-friendly simplified instructions */}
           <div className="sm:hidden text-sm text-gray-600">
-            <p>Tap to complete • Drag for options</p>
+            <p>Tap • Hold 3s • Drag for options</p>
           </div>
         </div>
       </div>
@@ -437,13 +664,13 @@ const UnifiedTrackingButton = ({
         <div className="absolute -bottom-56 sm:-bottom-64 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white/80 p-3 rounded-lg border max-w-xs">
           <div className="grid grid-cols-2 gap-2">
             <div>Dragging: {isDragging.toString()}</div>
-            <div>Pressed: {isPressed.toString()}</div>
+            <div>Holding: {isHolding.toString()}</div>
+            <div>Progress: {Math.round(holdProgress)}%</div>
             <div>Direction: {gestureDirection || 'none'}</div>
             <div>Goal: {selectedGoal?.name || 'none'}</div>
             <div>Disabled: {disabled.toString()}</div>
-            <div>Callback: {onTrackingAction ? 'present' : 'missing'}</div>
-            <div>DragStart: {Math.round(dragStart.x)},{Math.round(dragStart.y)}</div>
-            <div>DragCurrent: {Math.round(dragCurrent.x)},{Math.round(dragCurrent.y)}</div>
+            <div>HasDragged: {hasDraggedRef.current.toString()}</div>
+            <div>Pressed: {isPressed.toString()}</div>
           </div>
         </div>
       )}
