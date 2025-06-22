@@ -31,6 +31,7 @@ const TrackingScreen = ({ onBack }) => {
   const [filterMode, setFilterMode] = useState('current') // 'current' or 'all'
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [showBurgerMenu, setShowBurgerMenu] = useState(false)
+  const [todayCompletions, setTodayCompletions] = useState(0)
   const goalScrollRef = useRef(null)
   const feedRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -69,6 +70,7 @@ const TrackingScreen = ({ onBack }) => {
     if (goals.length > 0) {
       fetchEntries()
       fetchCollaborators()
+      fetchTodayCompletions()
     }
   }, [goals, selectedGoalIndex, filterMode])
 
@@ -163,6 +165,33 @@ const TrackingScreen = ({ onBack }) => {
       setEntries(data || [])
     } catch (error) {
       console.error('Error fetching entries:', error)
+    }
+  }
+
+  const fetchTodayCompletions = async () => {
+    if (!selectedGoal) return
+
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      
+      if (userError || !user) return
+
+      const today = new Date().toISOString().split('T')[0]
+      
+      const { data, error } = await supabase
+        .from('goal_entries')
+        .select('*')
+        .eq('goal_id', selectedGoal.id)
+        .eq('user_id', user.id)
+        .gte('completed_at', `${today}T00:00:00.000Z`)
+        .lt('completed_at', `${today}T23:59:59.999Z`)
+        .in('status', ['done', 'done_with_photo'])
+
+      if (error) throw error
+      
+      setTodayCompletions(data?.length || 0)
+    } catch (error) {
+      console.error('Error fetching today completions:', error)
     }
   }
 
@@ -388,6 +417,9 @@ const TrackingScreen = ({ onBack }) => {
       
       // Refresh entries
       fetchEntries()
+
+      // Refresh today's completions
+      fetchTodayCompletions()
 
       // Show success feedback
       setTrackingAction(entryData.status)
@@ -833,6 +865,7 @@ const TrackingScreen = ({ onBack }) => {
             onPhotoCapture={handlePhotoCapture}
             selectedGoal={selectedGoal}
             disabled={!selectedGoal}
+            completionCount={todayCompletions}
           />
           
           {/* Tracking Feedback */}
@@ -863,7 +896,7 @@ const TrackingScreen = ({ onBack }) => {
       {/* Tracking Feed - Updated with enhanced entry display */}
       <div 
         ref={feedRef}
-        className="relative z-10 bg-white/60 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl shadow-premium-xl min-h-screen pt-12 sm:pt-16 px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32"
+        className="relative z-10 bg-white/60 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl shadow-premium-xl min-h-screen pt-24 sm:pt-32 px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32 mt-16"
       >
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-6 sm:mb-8">
