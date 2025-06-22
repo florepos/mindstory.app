@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Camera, Check, X, Share2, Edit3, Trash2, Calendar, Target, TrendingUp, Award, Heart, Sparkles, ArrowLeft, Filter, MessageCircle, Upload, Brain, User, Users, Menu } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Camera, Check, X, Share2, Edit3, Trash2, Calendar, Target, TrendingUp, Award, Heart, Sparkles, ArrowLeft, Filter, MessageCircle, Upload, Brain, User, Users, Globe, Menu } from 'lucide-react'
 import { useSpring, animated, config } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 import { supabase } from '../services/supabaseClient'
@@ -167,7 +167,7 @@ const TrackingScreen = ({ onBack }) => {
   }
 
   const fetchCollaborators = async () => {
-    if (!goals[selectedGoalIndex] || goals[selectedGoalIndex].goal_type !== 'friends_challenge') {
+    if (!goals[selectedGoalIndex] || goals[selectedGoalIndex].privacy_level !== 'friends_challenge') {
       setCollaborators([])
       return
     }
@@ -426,12 +426,19 @@ const TrackingScreen = ({ onBack }) => {
     setShowContextMenu(false)
   }
 
-  const getGoalTypeIcon = (goalType) => {
-    switch (goalType) {
+  const getGoalTypeIcon = (goal) => {
+    // Check both privacy_level and goal_type for compatibility
+    const type = goal.privacy_level || goal.goal_type
+    
+    switch (type) {
+      case 'private':
+        return null // No icon for private goals as requested
+      case 'friends':
       case 'friends_challenge':
-        return <Users className="w-3 h-3 text-blue-500" />
+        return <Users className="w-4 h-4 text-blue-500" />
+      case 'public':
       case 'public_challenge':
-        return <Globe className="w-3 h-3 text-green-500" />
+        return <Globe className="w-4 h-4 text-green-500" />
       default:
         return null
     }
@@ -656,11 +663,15 @@ const TrackingScreen = ({ onBack }) => {
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   
-                  {/* Goal Type Indicator */}
-                  {(goal.goal_type === 'friends_challenge' || goal.goal_type === 'public_challenge') && (
+                  {/* Goal Type Indicator - Only show for friends and public goals */}
+                  {getGoalTypeIcon(goal) && (
                     <div className="absolute top-4 right-4 z-20">
-                      <div className="p-2 bg-white/20 backdrop-blur-sm rounded-full">
-                        {getGoalTypeIcon(goal.goal_type)}
+                      <div className={`p-2 rounded-full shadow-premium ${
+                        isSelected 
+                          ? 'bg-white/20 backdrop-blur-sm' 
+                          : 'bg-white/90 backdrop-blur-sm'
+                      }`}>
+                        {getGoalTypeIcon(goal)}
                       </div>
                     </div>
                   )}
@@ -716,7 +727,7 @@ const TrackingScreen = ({ onBack }) => {
         </div>
       </section>
 
-      {/* Unified Tracking Interface - Adjusted positioning to bottom-10 */}
+      {/* Unified Tracking Interface - Removed redundant "Track: " text */}
       <section className="relative z-20 flex justify-center py-20 sm:py-24 lg:py-28">
         <div className="text-center">
           <UnifiedTrackingButton
@@ -784,7 +795,7 @@ const TrackingScreen = ({ onBack }) => {
           </div>
 
           {/* Collaborator Avatars for Friends Goals */}
-          {selectedGoal?.goal_type === 'friends_challenge' && collaborators.length > 0 && (
+          {selectedGoal?.privacy_level === 'friends_challenge' && collaborators.length > 0 && (
             <div className="flex items-center space-x-2 mb-6">
               <span className="text-sm text-gray-600 mr-2">With:</span>
               <div className="flex -space-x-2 overflow-hidden">
@@ -993,7 +1004,7 @@ const TrackingScreen = ({ onBack }) => {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-500">Type:</span>
-                  <span className="ml-2 font-medium capitalize">{selectedGoal.goal_type?.replace('_', ' ')}</span>
+                  <span className="ml-2 font-medium capitalize">{(selectedGoal.privacy_level || selectedGoal.goal_type)?.replace('_', ' ')}</span>
                 </div>
                 {selectedGoal.is_countable && (
                   <div>

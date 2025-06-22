@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight, BarChart3, Calendar, Target, Zap, Plus, Lock, Users, Globe } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
 import GoalFeed from './GoalFeed'
-import CreateGoalModal from './CreateGoalModal'
+import EnhancedCreateGoalModal from './EnhancedCreateGoalModal'
 import GoalEditModal from './GoalEditModal'
 
 const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
@@ -116,16 +116,19 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
     setEditingGoal(null)
   }
 
-  const getGoalTypeIcon = (goalType) => {
-    switch (goalType) {
+  const getGoalTypeIcon = (goal) => {
+    // Check both goal_type and privacy_level for compatibility
+    const type = goal.privacy_level || goal.goal_type
+    
+    switch (type) {
       case 'private':
-        return <Lock className="w-3 h-3 text-gray-500" />
+        return null // No icon for private goals as requested
       case 'friends':
       case 'friends_challenge':
-        return <Users className="w-3 h-3 text-blue-500" />
+        return <Users className="w-4 h-4 text-blue-500" />
       case 'public':
       case 'public_challenge':
-        return <Globe className="w-3 h-3 text-green-500" />
+        return <Globe className="w-4 h-4 text-green-500" />
       default:
         return null
     }
@@ -233,11 +236,15 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   
-                  {/* Goal Type Indicator */}
-                  {(goal.goal_type === 'friends' || goal.goal_type === 'friends_challenge' || goal.goal_type === 'public' || goal.goal_type === 'public_challenge') && (
-                    <div className="absolute top-4 right-4 z-20">
-                      <div className="p-2 bg-white/20 backdrop-blur-sm rounded-full">
-                        {getGoalTypeIcon(goal.goal_type)}
+                  {/* Goal Type Indicator - Only show for friends and public goals */}
+                  {getGoalTypeIcon(goal) && (
+                    <div className="absolute top-6 right-6 z-20">
+                      <div className={`p-3 rounded-full shadow-premium ${
+                        isSelected 
+                          ? 'bg-white/20 backdrop-blur-sm' 
+                          : 'bg-white/90 backdrop-blur-sm'
+                      }`}>
+                        {getGoalTypeIcon(goal)}
                       </div>
                     </div>
                   )}
@@ -254,9 +261,6 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
                       }`}>
                         {goal.name}
                       </h3>
-                      <div className="flex items-center justify-center mb-2">
-                        {getGoalTypeIcon(goal.goal_type || goal.privacy_level)}
-                      </div>
                       {goal.description && (
                         <p className={`text-base line-clamp-3 ${
                           isSelected ? 'text-white/90' : 'text-gray-600'
@@ -267,13 +271,13 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
                     </div>
 
                     <div className="flex items-center justify-between text-sm mb-6">
-                      {(goal.goal_type || goal.privacy_level) && (
+                      {(goal.privacy_level || goal.goal_type) && (
                         <span className={`px-4 py-2 rounded-full capitalize font-semibold ${
                           isSelected 
                             ? 'bg-white/20 text-white' 
                             : 'bg-primary-100 text-primary-700'
                         }`}>
-                          {(goal.goal_type || goal.privacy_level)?.replace('_', ' ')}
+                          {(goal.privacy_level || goal.goal_type)?.replace('_', ' ')}
                         </span>
                       )}
                       <button
@@ -338,7 +342,7 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
         onClose={() => setFeedGoal(null)}
       />
 
-      <CreateGoalModal
+      <EnhancedCreateGoalModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onGoalCreated={handleCreateGoal}

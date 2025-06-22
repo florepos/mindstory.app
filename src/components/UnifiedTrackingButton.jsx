@@ -15,6 +15,7 @@ const UnifiedTrackingButton = ({
   const [progress, setProgress] = useState(0)
   const [gestureDirection, setGestureDirection] = useState(null)
   const [showInstructions, setShowInstructions] = useState(true)
+  const [hasInteracted, setHasInteracted] = useState(false)
   
   const pressTimer = useRef(null)
   const progressTimer = useRef(null)
@@ -46,23 +47,25 @@ const UnifiedTrackingButton = ({
 
   // Direction indicators animation - Always visible when expanded
   const [indicatorSpring, indicatorApi] = useSpring(() => ({
-    opacity: 1, // Changed from 0 to 1 to make icons always visible
-    scale: 1,   // Changed from 0.8 to 1 to make icons full size
+    opacity: 1,
+    scale: 1,
     config: config.gentle
   }))
 
-  // Hide instructions after first interaction
+  // Hide instructions after first interaction or timeout
   useEffect(() => {
     instructionTimer.current = setTimeout(() => {
-      setShowInstructions(false)
-    }, 5000)
+      if (!hasInteracted) {
+        setShowInstructions(false)
+      }
+    }, 8000) // Show for 8 seconds initially
 
     return () => {
       if (instructionTimer.current) {
         clearTimeout(instructionTimer.current)
       }
     }
-  }, [])
+  }, [hasInteracted])
 
   // Calculate current scale based on progress
   const getCurrentScale = useCallback((currentProgress) => {
@@ -75,7 +78,13 @@ const UnifiedTrackingButton = ({
 
     setIsPressed(true)
     setShowInstructions(false)
+    setHasInteracted(true)
     startTime.current = Date.now()
+    
+    // Haptic feedback if available
+    if (navigator.vibrate) {
+      navigator.vibrate(50)
+    }
     
     // Start visual feedback
     buttonApi.start({
@@ -137,7 +146,10 @@ const UnifiedTrackingButton = ({
     setIsExpanded(true)
     setProgress(100)
     
-    // Show direction indicators - removed indicatorApi.start since they're always visible now
+    // Haptic feedback for expansion complete
+    if (navigator.vibrate) {
+      navigator.vibrate([100, 50, 100])
+    }
     
     // Enhanced visual feedback for expansion completion
     buttonApi.start({
@@ -186,8 +198,8 @@ const UnifiedTrackingButton = ({
     })
 
     indicatorApi.start({
-      opacity: 1, // Keep visible
-      scale: 1    // Keep full size
+      opacity: 1,
+      scale: 1
     })
   }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi])
 
@@ -244,6 +256,11 @@ const UnifiedTrackingButton = ({
     let action = 'done'
     let needsComment = false
 
+    // Haptic feedback for action
+    if (navigator.vibrate) {
+      navigator.vibrate(200)
+    }
+
     switch (direction) {
       case 'right':
         action = 'done'
@@ -277,7 +294,7 @@ const UnifiedTrackingButton = ({
     })
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
-  // Event handlers
+  // Event handlers with improved touch support
   const handleMouseDown = (e) => {
     e.preventDefault()
     if (!isExpanded) handlePressStart()
@@ -296,6 +313,17 @@ const UnifiedTrackingButton = ({
   const handleTouchEnd = (e) => {
     e.preventDefault()
     if (!isExpanded) handlePressEnd()
+  }
+
+  // Handle click for quick actions when not expanded
+  const handleClick = (e) => {
+    e.preventDefault()
+    if (!isExpanded && !isPressed && selectedGoal) {
+      // Quick tap action - mark as done
+      if (onTrackingAction) {
+        onTrackingAction('done', false)
+      }
+    }
   }
 
   const getGestureColor = (direction) => {
@@ -400,7 +428,7 @@ const UnifiedTrackingButton = ({
           flex items-center justify-center
           cursor-pointer select-none outline-none
           transition-colors duration-300
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110'}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110 active:brightness-95'}
           ${isExpanded ? 'cursor-grab active:cursor-grabbing' : ''}
         `}
         style={{
@@ -418,9 +446,10 @@ const UnifiedTrackingButton = ({
         onMouseUp={handleMouseUp}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        onClick={handleClick}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
-        aria-label={isExpanded ? "Swipe to complete action" : "Hold to expand tracking options"}
+        aria-label={isExpanded ? "Swipe to complete action" : selectedGoal ? "Hold to expand tracking options or tap to complete" : "Select a goal first"}
       >
         {/* Button Content */}
         <div className="flex items-center justify-center text-white relative z-10">
@@ -471,13 +500,13 @@ const UnifiedTrackingButton = ({
         ) : showInstructions ? (
           <div className="space-y-2">
             <p className="text-base font-medium text-gray-700">
-              {isPressed ? `${Math.round(progress)}% - Keep holding...` : 'Hold for 3 seconds'}
+              {isPressed ? `${Math.round(progress)}% - Keep holding...` : 'Hold 3s or tap to track'}
             </p>
             <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
               <div className={`w-2 h-2 rounded-full transition-colors duration-300 ${
                 isPressed ? 'bg-primary-500 animate-pulse' : 'bg-gray-300'
               }`} />
-              <span>Long press to expand</span>
+              <span>Long press for options • Tap for quick complete</span>
               <div className={`w-2 h-2 rounded-full transition-colors duration-300 ${
                 isPressed ? 'bg-primary-500 animate-pulse' : 'bg-gray-300'
               }`} />
@@ -486,7 +515,7 @@ const UnifiedTrackingButton = ({
         ) : (
           <div className="space-y-1">
             <p className="text-sm text-gray-600">
-              {selectedGoal ? `Track: ${selectedGoal.name}` : 'Select a goal first'}
+              {selectedGoal ? selectedGoal.name : 'Select a goal first'}
             </p>
           </div>
         )}
