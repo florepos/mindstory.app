@@ -28,7 +28,7 @@ const PublicGoalFeed = () => {
             goal_type,
             user_id
           ),
-          profiles (
+          user_id!inner(
             display_name,
             avatar_url
           )
@@ -141,10 +141,10 @@ const PublicGoalFeed = () => {
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  {entry.profiles?.avatar_url ? (
+                  {entry.user_id?.avatar_url ? (
                     <img
-                      src={entry.profiles.avatar_url}
-                      alt={entry.profiles.display_name}
+                      src={entry.user_id.avatar_url}
+                      alt={entry.user_id.display_name}
                       className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-premium"
                     />
                   ) : (
@@ -154,7 +154,7 @@ const PublicGoalFeed = () => {
                   )}
                   <div>
                     <div className="font-bold text-gray-800">
-                      {entry.profiles?.display_name || 'Anonymous User'}
+                      {entry.user_id?.display_name || 'Anonymous User'}
                     </div>
                     <div className="text-sm text-gray-600 flex items-center space-x-1">
                       <Globe className="w-3 h-3" />

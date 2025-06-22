@@ -22,7 +22,7 @@ const PublicChallengeFeed = () => {
         .from('goals')
         .select(`
           *,
-          profiles (
+          user_id!inner(
             display_name,
             avatar_url
           ),
@@ -31,7 +31,7 @@ const PublicChallengeFeed = () => {
             user_id,
             total_progress,
             last_activity,
-            profiles (
+            user_id!inner(
               display_name,
               avatar_url
             )
@@ -227,7 +227,7 @@ const PublicChallengeFeed = () => {
                         <div className="flex items-center space-x-1 mt-1">
                           <span className="text-sm text-gray-500">by</span>
                           <span className="text-sm font-medium text-gray-700">
-                            {challenge.profiles?.display_name || 'Anonymous'}
+                            {challenge.user_id?.display_name || 'Anonymous'}
                           </span>
                         </div>
                       </div>
@@ -303,10 +303,10 @@ const PublicChallengeFeed = () => {
                         {topParticipants.map((participant, index) => (
                           <div key={participant.id} className="flex items-center space-x-2">
                             <div className="relative">
-                              {participant.profiles?.avatar_url ? (
+                              {participant.user_id?.avatar_url ? (
                                 <img
-                                  src={participant.profiles.avatar_url}
-                                  alt={participant.profiles.display_name}
+                                  src={participant.user_id.avatar_url}
+                                  alt={participant.user_id.display_name}
                                   className="w-8 h-8 rounded-full object-cover border-2 border-white"
                                 />
                               ) : (
@@ -322,7 +322,7 @@ const PublicChallengeFeed = () => {
                             </div>
                             <div className="text-xs">
                               <div className="font-medium text-gray-700">
-                                {participant.profiles?.display_name || 'Anonymous'}
+                                {participant.user_id?.display_name || 'Anonymous'}
                               </div>
                               <div className="text-gray-500">
                                 {participant.total_progress || 0} {challenge.target_unit || 'done'}

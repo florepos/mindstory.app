@@ -29,7 +29,7 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
         .from('goal_collaborators')
         .select(`
           *,
-          profiles (
+          user_id!inner(
             display_name,
             avatar_url
           )
@@ -69,7 +69,7 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
 
       // Check if user already exists as collaborator
       const existingCollaborator = collaborators.find(c => 
-        c.profiles?.email === newInviteEmail.trim()
+        c.user_id?.email === newInviteEmail.trim()
       )
 
       if (existingCollaborator) {
@@ -243,10 +243,10 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
                 {collaborators.map((collaborator) => (
                   <div key={collaborator.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      {collaborator.profiles?.avatar_url ? (
+                      {collaborator.user_id?.avatar_url ? (
                         <img
-                          src={collaborator.profiles.avatar_url}
-                          alt={collaborator.profiles.display_name}
+                          src={collaborator.user_id.avatar_url}
+                          alt={collaborator.user_id.display_name}
                           className="w-10 h-10 rounded-full object-cover"
                         />
                       ) : (
@@ -256,7 +256,7 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
                       )}
                       <div>
                         <div className="font-medium text-gray-800">
-                          {collaborator.profiles?.display_name || 'Unknown User'}
+                          {collaborator.user_id?.display_name || 'Unknown User'}
                         </div>
                         <div className="text-sm text-gray-600 flex items-center space-x-1">
                           {getRoleIcon(collaborator.role)}
