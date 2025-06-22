@@ -173,23 +173,52 @@ const TrackingScreen = ({ onBack }) => {
     }
 
     try {
-      const { data, error } = await supabase
+      // First, fetch collaborators
+      const { data: collaboratorData, error: collaboratorError } = await supabase
         .from('goal_collaborators')
-        .select(`
-          *,
-          profiles (
-            display_name,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('goal_id', goals[selectedGoalIndex].id)
         .eq('status', 'accepted')
         .order('created_at', { ascending: true })
 
-      if (error) throw error
-      setCollaborators(data || [])
+      if (collaboratorError) throw collaboratorError
+
+      if (!collaboratorData || collaboratorData.length === 0) {
+        setCollaborators([])
+        return
+      }
+
+      // Get user IDs from collaborators
+      const userIds = collaboratorData.map(c => c.user_id).filter(Boolean)
+      
+      if (userIds.length === 0) {
+        setCollaborators(collaboratorData.map(c => ({ ...c, profiles: null })))
+        return
+      }
+
+      // Fetch profiles for those users
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', userIds)
+
+      if (profileError) {
+        console.error('Profile fetch error:', profileError)
+        // Continue without profiles rather than failing
+        setCollaborators(collaboratorData.map(c => ({ ...c, profiles: null })))
+        return
+      }
+
+      // Combine the data
+      const enrichedCollaborators = collaboratorData.map(collaborator => ({
+        ...collaborator,
+        profiles: profileData.find(p => p.user_id === collaborator.user_id)
+      }))
+
+      setCollaborators(enrichedCollaborators)
     } catch (error) {
       console.error('Error fetching collaborators:', error)
+      setCollaborators([])
     }
   }
 
