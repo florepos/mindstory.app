@@ -510,9 +510,15 @@ const UnifiedTrackingButton = ({
           {isExpanded ? (
             <div className="flex items-center justify-center">
               <div className={`transition-colors duration-300 ${getGestureColor(gestureDirection)}`}>
-                {React.createElement(getGestureIcon(gestureDirection), { 
-                  className: "w-8 h-8 sm:w-10 sm:h-10" 
-                })}
+                {(() => {
+                  const IconOrEmoji = getGestureIcon(gestureDirection);
+                  if (typeof IconOrEmoji === 'string') {
+                    return <span className="text-4xl sm:text-5xl">{IconOrEmoji}</span>;
+                  }
+                  return React.createElement(IconOrEmoji, { 
+                    className: "w-8 h-8 sm:w-10 sm:h-10" 
+                  });
+                })()}
               </div>
             </div>
           ) : (
