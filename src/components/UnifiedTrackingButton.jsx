@@ -67,6 +67,25 @@ const UnifiedTrackingButton = ({
     }
   }, [hasInteracted])
 
+  // Lock/unlock scrolling
+  const lockScrolling = useCallback(() => {
+    document.body.style.overflow = 'hidden'
+    document.body.style.position = 'fixed'
+    document.body.style.width = '100%'
+    document.body.style.top = `-${window.scrollY}px`
+  }, [])
+
+  const unlockScrolling = useCallback(() => {
+    const scrollY = document.body.style.top
+    document.body.style.overflow = ''
+    document.body.style.position = ''
+    document.body.style.width = ''
+    document.body.style.top = ''
+    if (scrollY) {
+      window.scrollTo(0, parseInt(scrollY || '0') * -1)
+    }
+  }, [])
+
   // Calculate current scale based on progress
   const getCurrentScale = useCallback((currentProgress) => {
     return 1 + (MAX_SCALE - 1) * (currentProgress / 100)
@@ -80,6 +99,9 @@ const UnifiedTrackingButton = ({
     setShowInstructions(false)
     setHasInteracted(true)
     startTime.current = Date.now()
+    
+    // Lock scrolling when tracking starts
+    lockScrolling()
     
     // Haptic feedback if available
     if (navigator.vibrate) {
@@ -139,7 +161,7 @@ const UnifiedTrackingButton = ({
     pressTimer.current = setTimeout(() => {
       handleExpansionComplete()
     }, EXPAND_DURATION)
-  }, [disabled, selectedGoal, buttonApi, progressApi, getCurrentScale])
+  }, [disabled, selectedGoal, buttonApi, progressApi, getCurrentScale, lockScrolling])
 
   // Handle expansion completion
   const handleExpansionComplete = useCallback(() => {
@@ -171,6 +193,9 @@ const UnifiedTrackingButton = ({
     setGestureDirection(null)
     startTime.current = null
 
+    // Unlock scrolling when tracking ends
+    unlockScrolling()
+
     // Clear timers
     if (pressTimer.current) {
       clearTimeout(pressTimer.current)
@@ -201,18 +226,24 @@ const UnifiedTrackingButton = ({
       opacity: 1,
       scale: 1
     })
-  }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi])
+  }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi, unlockScrolling])
 
   // Gesture handler for expanded state
   const gestureHandler = useDrag(
-    ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy] }) => {
+    ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], event }) => {
       if (!isExpanded) return
 
-      const isSwipe = Math.abs(vx) > 0.5 || Math.abs(vy) > 0.5
+      // Prevent default touch behaviors
+      if (event) {
+        event.preventDefault()
+        event.stopPropagation()
+      }
+
+      const isSwipe = Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3
       const distance = Math.sqrt(mx * mx + my * my)
 
       if (active && distance > 20) {
-        // Determine gesture direction
+        // Determine gesture direction with improved sensitivity
         let direction = null
         if (Math.abs(my) > Math.abs(mx)) {
           direction = my < 0 ? 'up' : 'down'
@@ -229,14 +260,14 @@ const UnifiedTrackingButton = ({
             glow: 1.5
           })
         }
-      } else if (!active && isSwipe && distance > GESTURE_THRESHOLD) {
+      } else if (!active && (isSwipe || distance > GESTURE_THRESHOLD)) {
         // Execute gesture action
         executeGestureAction(gestureDirection)
       } else if (!active) {
         // Reset if no significant gesture
         if (distance < GESTURE_THRESHOLD) {
-          // Default action (complete)
-          executeGestureAction('default')
+          // Default action (complete with comment)
+          executeGestureAction('right')
         } else {
           handlePressEnd()
         }
@@ -245,7 +276,9 @@ const UnifiedTrackingButton = ({
     {
       axis: undefined,
       threshold: 10,
-      rubberband: true
+      rubberband: true,
+      preventDefault: true,
+      filterTaps: true
     }
   )
 
@@ -264,7 +297,7 @@ const UnifiedTrackingButton = ({
     switch (direction) {
       case 'right':
         action = 'done'
-        needsComment = true
+        needsComment = true // Always open comment field for right swipe
         break
       case 'left':
         action = 'not_done'
@@ -279,6 +312,7 @@ const UnifiedTrackingButton = ({
         break
       default:
         action = 'done'
+        needsComment = true // Default to opening comment field
         break
     }
 
@@ -319,9 +353,9 @@ const UnifiedTrackingButton = ({
   const handleClick = (e) => {
     e.preventDefault()
     if (!isExpanded && !isPressed && selectedGoal) {
-      // Quick tap action - mark as done
+      // Quick tap action - mark as done with comment
       if (onTrackingAction) {
-        onTrackingAction('done', false)
+        onTrackingAction('done', true)
       }
     }
   }
@@ -337,7 +371,7 @@ const UnifiedTrackingButton = ({
 
   const getGestureIcon = (direction) => {
     switch (direction) {
-      case 'right': return Check
+      case 'right': return MessageCircle // Changed to comment icon for right swipe
       case 'left': return X
       case 'up': return Camera
       default: return Target
@@ -400,12 +434,12 @@ const UnifiedTrackingButton = ({
           </div>
         </div>
 
-        {/* Right - Complete */}
+        {/* Right - Comment */}
         <div className={`absolute top-1/2 -right-16 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'right' ? 'scale-125 text-success-500' : 'text-gray-400'
         }`}>
           <div className="p-4 bg-white/90 backdrop-blur-sm rounded-full shadow-premium">
-            <Check className="w-6 h-6" />
+            <MessageCircle className="w-6 h-6" />
           </div>
         </div>
 
@@ -440,7 +474,7 @@ const UnifiedTrackingButton = ({
           borderWidth: buttonSpring.borderWidth.to(w => `${w}px`),
           borderColor: isPressed || isExpanded ? '#f97316' : 'transparent',
           borderStyle: 'solid',
-          touchAction: isExpanded ? 'none' : 'auto'
+          touchAction: 'none' // Prevent default touch behaviors
         }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
@@ -475,7 +509,7 @@ const UnifiedTrackingButton = ({
         )}
       </animated.button>
 
-      {/* Instructions - Only show when needed */}
+      {/* Instructions - Only show when expanded */}
       {isExpanded && (
         <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-2">
@@ -485,7 +519,7 @@ const UnifiedTrackingButton = ({
             <div className="flex items-center justify-center space-x-4 text-xs text-gray-600">
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-success-400 rounded-full"></div>
-                <span>Right: Done + Comment</span>
+                <span>Right: Comment</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-primary-400 rounded-full"></div>

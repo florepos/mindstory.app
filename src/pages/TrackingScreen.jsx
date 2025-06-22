@@ -928,7 +928,7 @@ const TrackingScreen = ({ onBack }) => {
                       </p>
                     )}
 
-                    {/* Actions */}
+                    {/* Actions - Updated to show only delete, share, and edit */}
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-gray-500">
                         {new Date(entry.completed_at).toLocaleTimeString('en-US', {
@@ -938,15 +938,47 @@ const TrackingScreen = ({ onBack }) => {
                         })}
                       </div>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleEntryLongPress(entry, e)
-                        }}
-                        className="p-3 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-xl"
-                      >
-                        <MessageCircle className="w-4 sm:w-5 h-4 sm:h-5 text-gray-600" />
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            // Handle share
+                            console.log('Share entry:', entry.id)
+                          }}
+                          className="p-2 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-lg"
+                          title="Share"
+                        >
+                          <Share2 className="w-4 h-4 text-gray-600" />
+                        </button>
+                        
+                        {canEdit && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEntryEdit(entry)
+                              }}
+                              className="p-2 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-lg"
+                              title="Edit"
+                            >
+                              <Edit3 className="w-4 h-4 text-gray-600" />
+                            </button>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm('Are you sure you want to delete this entry?')) {
+                                  handleEntryDelete(entry.id)
+                                }
+                              }}
+                              className="p-2 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-lg"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4 text-error-600" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
