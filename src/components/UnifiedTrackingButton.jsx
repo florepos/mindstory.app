@@ -16,8 +16,6 @@ const UnifiedTrackingButton = ({
   const [gestureDirection, setGestureDirection] = useState(null)
   const [showInstructions, setShowInstructions] = useState(true)
   const [hasInteracted, setHasInteracted] = useState(false)
-  const [scrollPosition, setScrollPosition] = useState(0)
-  const [isMobile, setIsMobile] = useState(false)
   
   const pressTimer = useRef(null)
   const progressTimer = useRef(null)
@@ -28,16 +26,6 @@ const UnifiedTrackingButton = ({
   const EXPAND_DURATION = 3000
   const MAX_SCALE = 1.5
   const GESTURE_THRESHOLD = 80
-
-  // Detect mobile device
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
 
   // Main button animation
   const [buttonSpring, buttonApi] = useSpring(() => ({
@@ -80,54 +68,20 @@ const UnifiedTrackingButton = ({
     }
   }, [hasInteracted])
 
-  // Enhanced scroll locking with position preservation (mobile only)
-  const lockScrolling = useCallback(() => {
-    if (!isMobile) return // Only lock on mobile
-    
-    const currentScrollY = window.scrollY
-    setScrollPosition(currentScrollY)
-    
-    document.body.style.overflow = 'hidden'
-    document.body.style.position = 'fixed'
-    document.body.style.width = '100%'
-    document.body.style.top = `-${currentScrollY}px`
-    
-    console.log('Mobile scroll locked at position:', currentScrollY)
-  }, [isMobile])
-
-  const unlockScrolling = useCallback(() => {
-    if (!isMobile) return // Only unlock on mobile
-    
-    document.body.style.overflow = ''
-    document.body.style.position = ''
-    document.body.style.width = ''
-    document.body.style.top = ''
-    
-    // Restore scroll position without triggering scroll events
-    window.scrollTo(0, scrollPosition)
-    
-    console.log('Mobile scroll unlocked, restored to position:', scrollPosition)
-  }, [scrollPosition, isMobile])
-
   // Calculate current scale based on progress
   const getCurrentScale = useCallback((currentProgress) => {
     return 1 + (MAX_SCALE - 1) * (currentProgress / 100)
   }, [])
 
-  // Start long press with enhanced desktop/mobile support
+  // Start long press
   const handlePressStart = useCallback(() => {
     if (disabled || !selectedGoal) return
 
-    console.log('Press start triggered, isMobile:', isMobile)
+    console.log('🚀 Press start triggered')
     setIsPressed(true)
     setShowInstructions(false)
     setHasInteracted(true)
     startTime.current = Date.now()
-    
-    // Lock scrolling only on mobile
-    if (isMobile) {
-      lockScrolling()
-    }
     
     // Haptic feedback if available
     if (navigator.vibrate) {
@@ -147,7 +101,7 @@ const UnifiedTrackingButton = ({
       scale: 1.1
     })
 
-    // Progress tracking with better performance
+    // Progress tracking
     const updateProgress = () => {
       if (!startTime.current) return
 
@@ -186,11 +140,11 @@ const UnifiedTrackingButton = ({
     pressTimer.current = setTimeout(() => {
       handleExpansionComplete()
     }, EXPAND_DURATION)
-  }, [disabled, selectedGoal, buttonApi, progressApi, getCurrentScale, lockScrolling, isMobile])
+  }, [disabled, selectedGoal, buttonApi, progressApi, getCurrentScale])
 
   // Handle expansion completion
   const handleExpansionComplete = useCallback(() => {
-    console.log('Expansion complete')
+    console.log('✨ Expansion complete')
     setIsExpanded(true)
     setProgress(100)
     
@@ -209,21 +163,16 @@ const UnifiedTrackingButton = ({
     })
   }, [buttonApi])
 
-  // End press/reset with proper cleanup
+  // End press/reset
   const handlePressEnd = useCallback(() => {
     if (!isPressed && !isExpanded) return
 
-    console.log('Press end triggered')
+    console.log('🛑 Press end triggered')
     setIsPressed(false)
     setIsExpanded(false)
     setProgress(0)
     setGestureDirection(null)
     startTime.current = null
-
-    // Unlock scrolling only on mobile
-    if (isMobile) {
-      unlockScrolling()
-    }
 
     // Clear timers
     if (pressTimer.current) {
@@ -255,14 +204,14 @@ const UnifiedTrackingButton = ({
       opacity: 1,
       scale: 1
     })
-  }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi, unlockScrolling, isMobile])
+  }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi])
 
-  // Enhanced gesture handler with better mobile/desktop support
+  // Gesture handler for expanded state
   const gestureHandler = useDrag(
     ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], event }) => {
       if (!isExpanded) return
 
-      console.log('Gesture detected:', { active, mx, my, dx, dy, vx, vy })
+      console.log('👆 Gesture detected:', { active, mx, my, dx, dy, vx, vy })
 
       // Prevent default touch behaviors
       if (event) {
@@ -282,7 +231,7 @@ const UnifiedTrackingButton = ({
           direction = mx > 0 ? 'right' : 'left'
         }
         
-        console.log('Gesture direction:', direction)
+        console.log('📍 Gesture direction:', direction)
         setGestureDirection(direction)
         
         // Visual feedback during gesture
@@ -294,7 +243,7 @@ const UnifiedTrackingButton = ({
         }
       } else if (!active && (isSwipe || distance > GESTURE_THRESHOLD)) {
         // Execute gesture action
-        console.log('Executing gesture action:', gestureDirection)
+        console.log('⚡ Executing gesture action:', gestureDirection)
         executeGestureAction(gestureDirection)
       } else if (!active) {
         // Reset if no significant gesture
@@ -315,11 +264,11 @@ const UnifiedTrackingButton = ({
     }
   )
 
-  // Execute gesture action with proper photo workflow
+  // Execute gesture action
   const executeGestureAction = useCallback((direction) => {
     if (!onTrackingAction) return
 
-    console.log('Executing action for direction:', direction)
+    console.log('🎯 Executing action for direction:', direction)
     let action = 'done'
     let needsComment = false
 
@@ -337,12 +286,11 @@ const UnifiedTrackingButton = ({
         action = 'not_done'
         break
       case 'up':
-        // Fixed photo workflow: trigger photo capture first
         if (onPhotoCapture) {
-          console.log('Triggering photo capture')
-          handlePressEnd() // End interaction first
+          console.log('📸 Triggering photo capture')
+          handlePressEnd()
           setTimeout(() => {
-            onPhotoCapture() // Then trigger photo capture
+            onPhotoCapture()
           }, 100)
           return
         }
@@ -354,7 +302,7 @@ const UnifiedTrackingButton = ({
         break
     }
 
-    // Success animation with proper callback
+    // Success animation with onRest callback
     buttonApi.start({
       scale: MAX_SCALE * 1.2,
       rotate: 720,
@@ -366,62 +314,45 @@ const UnifiedTrackingButton = ({
     })
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
-  // Enhanced event handlers with better desktop support
-  const handleMouseDown = useCallback((e) => {
-    if (isMobile) return // Skip mouse events on mobile
+  // Simplified event handlers
+  const handlePointerDown = useCallback((e) => {
     e.preventDefault()
-    console.log('Desktop mouse down')
+    console.log('👇 Pointer down - type:', e.pointerType)
     if (!isExpanded) handlePressStart()
-  }, [isExpanded, handlePressStart, isMobile])
+  }, [isExpanded, handlePressStart])
 
-  const handleMouseUp = useCallback((e) => {
-    if (isMobile) return // Skip mouse events on mobile
+  const handlePointerUp = useCallback((e) => {
     e.preventDefault()
-    console.log('Desktop mouse up')
+    console.log('👆 Pointer up - type:', e.pointerType)
     if (!isExpanded) handlePressEnd()
-  }, [isExpanded, handlePressEnd, isMobile])
+  }, [isExpanded, handlePressEnd])
 
-  const handleMouseLeave = useCallback((e) => {
-    if (isMobile) return // Skip mouse events on mobile
-    console.log('Desktop mouse leave')
+  const handlePointerLeave = useCallback((e) => {
+    console.log('🚪 Pointer leave - type:', e.pointerType)
     if (isPressed && !isExpanded) handlePressEnd()
-  }, [isPressed, isExpanded, handlePressEnd, isMobile])
+  }, [isPressed, isExpanded, handlePressEnd])
 
-  const handleTouchStart = useCallback((e) => {
-    if (!isMobile) return // Skip touch events on desktop
-    e.preventDefault()
-    console.log('Mobile touch start')
-    if (!isExpanded) handlePressStart()
-  }, [isExpanded, handlePressStart, isMobile])
-
-  const handleTouchEnd = useCallback((e) => {
-    if (!isMobile) return // Skip touch events on desktop
-    e.preventDefault()
-    console.log('Mobile touch end')
-    if (!isExpanded) handlePressEnd()
-  }, [isExpanded, handlePressEnd, isMobile])
-
-  // Enhanced click handler with proper desktop/mobile detection
+  // Handle click for quick actions when not expanded
   const handleClick = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('Click triggered, isExpanded:', isExpanded, 'isPressed:', isPressed, 'isMobile:', isMobile)
+    console.log('🖱️ Click triggered, isExpanded:', isExpanded, 'isPressed:', isPressed)
     
-    // Only handle quick clicks when not in expanded mode and not currently pressing
     if (!isExpanded && !isPressed && selectedGoal) {
-      console.log('Quick action triggered')
+      console.log('⚡ Quick action triggered')
       if (onTrackingAction) {
         onTrackingAction('done', true)
       }
     }
-  }, [isExpanded, isPressed, selectedGoal, onTrackingAction, isMobile])
+  }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
 
-  // Desktop keyboard support
+  // Keyboard support
   const handleKeyDown = useCallback((e) => {
     if (disabled || !selectedGoal) return
     
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault()
+      console.log('⌨️ Key down:', e.key)
       if (!isPressed && !isExpanded) {
         handlePressStart()
       }
@@ -431,6 +362,7 @@ const UnifiedTrackingButton = ({
   const handleKeyUp = useCallback((e) => {
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault()
+      console.log('⌨️ Key up:', e.key)
       if (isPressed && !isExpanded) {
         handlePressEnd()
       }
@@ -494,7 +426,7 @@ const UnifiedTrackingButton = ({
         </svg>
       </animated.div>
 
-      {/* Direction Indicators - Only visible when expanded */}
+      {/* Direction Indicators - Always visible when expanded */}
       <animated.div
         style={{
           opacity: isExpanded ? indicatorSpring.opacity : 0,
@@ -554,11 +486,9 @@ const UnifiedTrackingButton = ({
           borderStyle: 'solid',
           touchAction: 'none'
         }}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerLeave={handlePointerLeave}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
         onKeyUp={handleKeyUp}
@@ -596,7 +526,7 @@ const UnifiedTrackingButton = ({
         <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-2">
             <p className="text-base font-semibold text-gray-700">
-              {isMobile ? 'Swipe to complete' : 'Drag to complete'}
+              Swipe to complete
             </p>
             <div className="flex items-center justify-center space-x-4 text-xs text-gray-600">
               <div className="flex items-center space-x-1">
@@ -621,11 +551,11 @@ const UnifiedTrackingButton = ({
         <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-2">
             <p className="text-base font-medium text-gray-700">
-              {isMobile ? 'Hold 3s or tap to track' : 'Hold 3s, tap, or press Space/Enter'}
+              Hold 3s or tap to track
             </p>
             <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
               <div className="w-2 h-2 rounded-full bg-gray-300" />
-              <span>{isMobile ? 'Long press for options • Tap for quick complete' : 'Hold/Space for options • Click for quick complete'}</span>
+              <span>Long press for options • Tap for quick complete</span>
               <div className="w-2 h-2 rounded-full bg-gray-300" />
             </div>
           </div>
