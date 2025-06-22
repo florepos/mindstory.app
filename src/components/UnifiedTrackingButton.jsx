@@ -368,7 +368,7 @@ const UnifiedTrackingButton = ({
         className="absolute inset-0 pointer-events-none z-20"
       >
         {/* Up - Camera */}
-        <div className={`absolute -top-8 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
+        <div className={`absolute -top-16 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
           gestureDirection === 'up' ? 'scale-125 text-primary-500' : 'text-gray-400'
         }`}>
           <div className="p-4 bg-white/90 backdrop-blur-sm rounded-full shadow-premium">
@@ -377,7 +377,7 @@ const UnifiedTrackingButton = ({
         </div>
 
         {/* Right - Complete */}
-        <div className={`absolute top-1/2 -right-8 transform -translate-y-1/2 transition-all duration-300 ${
+        <div className={`absolute top-1/2 -right-16 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'right' ? 'scale-125 text-success-500' : 'text-gray-400'
         }`}>
           <div className="p-4 bg-white/90 backdrop-blur-sm rounded-full shadow-premium">
@@ -386,7 +386,7 @@ const UnifiedTrackingButton = ({
         </div>
 
         {/* Left - Not Done */}
-        <div className={`absolute top-1/2 -left-8 transform -translate-y-1/2 transition-all duration-300 ${
+        <div className={`absolute top-1/2 -left-16 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'left' ? 'scale-125 text-error-500' : 'text-gray-400'
         }`}>
           <div className="p-4 bg-white/90 backdrop-blur-sm rounded-full shadow-premium">
