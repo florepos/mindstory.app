@@ -59,7 +59,6 @@ const UnifiedTrackingButton = ({
   const handlePressStart = useCallback(() => {
     if (disabled || !selectedGoal) return
 
-    console.log('🚀 Press start triggered')
     setIsPressed(true)
     startTime.current = Date.now()
     
@@ -124,7 +123,6 @@ const UnifiedTrackingButton = ({
 
   // Handle expansion completion
   const handleExpansionComplete = useCallback(() => {
-    console.log('✨ Expansion complete - enabling drag')
     setIsExpanded(true)
     setProgress(100)
     
@@ -147,7 +145,6 @@ const UnifiedTrackingButton = ({
   const handlePressEnd = useCallback(() => {
     if (!isPressed && !isExpanded) return
 
-    console.log('🛑 Press end triggered')
     setIsPressed(false)
     setIsExpanded(false)
     setProgress(0)
@@ -189,11 +186,9 @@ const UnifiedTrackingButton = ({
   // Execute gesture action
   const executeGestureAction = useCallback((direction) => {
     if (!onTrackingAction) {
-      console.error('❌ onTrackingAction callback not provided')
       return
     }
 
-    console.log('🎯 Executing action for direction:', direction)
     let action = 'done'
     let needsComment = false
 
@@ -206,26 +201,21 @@ const UnifiedTrackingButton = ({
       case 'right':
         action = 'done'
         needsComment = true
-        console.log('➡️ Right swipe: Done with comment')
         break
       case 'left':
         action = 'not_done'
-        console.log('⬅️ Left swipe: Not done')
         break
       case 'up':
         if (onPhotoCapture) {
-          console.log('📸 Up swipe: Triggering photo capture')
           onPhotoCapture()
           handlePressEnd()
           return
         }
         action = 'done_with_photo'
-        console.log('📸 Up swipe: Done with photo')
         break
       default:
         action = 'done'
         needsComment = true
-        console.log('🎯 Default action: Done with comment')
         break
     }
 
@@ -235,7 +225,6 @@ const UnifiedTrackingButton = ({
       rotate: 720,
       glow: 2.5,
       onRest: () => {
-        console.log('🚀 Calling onTrackingAction with:', action, needsComment)
         onTrackingAction(action, needsComment)
         setTimeout(handlePressEnd, 300)
       }
@@ -246,28 +235,17 @@ const UnifiedTrackingButton = ({
   const bind = useDrag(
     ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], first, last }) => {
       if (!isExpanded) {
-        console.log('❌ Gesture ignored - not expanded')
         return
       }
 
-      console.log('👆 Gesture:', { 
-        active, 
-        movement: [Math.round(mx), Math.round(my)], 
-        direction: [dx, dy], 
-        velocity: [Math.round(vx * 100) / 100, Math.round(vy * 100) / 100],
-        first, 
-        last 
-      })
-
       if (first) {
-        console.log('🎬 Gesture started')
         setGestureDirection(null)
       }
 
       if (active) {
         const distance = Math.sqrt(mx * mx + my * my)
         
-        if (distance > 30) {
+        if (distance > 20) { // Reduced threshold for better responsiveness
           // Determine direction based on movement with better logic
           let direction = null
           const absX = Math.abs(mx)
@@ -281,11 +259,10 @@ const UnifiedTrackingButton = ({
             direction = mx > 0 ? 'right' : 'left'
           }
           
-          console.log('📍 Direction detected:', direction, 'distance:', Math.round(distance), 'movement:', [Math.round(mx), Math.round(my)])
           setGestureDirection(direction)
           
           // Visual feedback during gesture with stronger effect
-          if (distance > GESTURE_THRESHOLD * 0.5) {
+          if (distance > GESTURE_THRESHOLD * 0.3) { // Earlier visual feedback
             buttonApi.start({
               scale: MAX_SCALE * 1.15,
               glow: 1.8
@@ -295,34 +272,23 @@ const UnifiedTrackingButton = ({
       }
 
       if (last) {
-        console.log('🏁 Gesture ended')
         const distance = Math.sqrt(mx * mx + my * my)
-        const isSwipe = Math.abs(vx) > 0.2 || Math.abs(vy) > 0.2
+        const isSwipe = Math.abs(vx) > 0.15 || Math.abs(vy) > 0.15 // Lower velocity threshold
         
-        console.log('📊 Final gesture stats:', { 
-          distance: Math.round(distance), 
-          isSwipe, 
-          threshold: GESTURE_THRESHOLD,
-          velocity: [Math.round(vx * 100) / 100, Math.round(vy * 100) / 100]
-        })
-        
-        if (distance > GESTURE_THRESHOLD || isSwipe) {
-          console.log('✅ Gesture threshold met, executing action for direction:', gestureDirection)
+        if (distance > GESTURE_THRESHOLD * 0.7 || isSwipe) { // Reduced distance threshold
           if (gestureDirection && gestureDirection !== 'down') {
             executeGestureAction(gestureDirection)
           } else {
-            console.log('❌ Invalid direction or downward gesture, resetting')
             handlePressEnd()
           }
         } else {
-          console.log('❌ Gesture threshold not met, resetting')
           handlePressEnd()
         }
       }
     },
     {
       axis: undefined, // Allow all directions
-      threshold: 10, // Lower threshold for initial detection
+      threshold: 5, // Even lower threshold for better responsiveness
       rubberband: true,
       preventDefault: true,
       filterTaps: true,
@@ -334,10 +300,8 @@ const UnifiedTrackingButton = ({
   const handleClick = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('🖱️ Click triggered, isExpanded:', isExpanded, 'isPressed:', isPressed)
     
     if (!isExpanded && !isPressed && selectedGoal && onTrackingAction) {
-      console.log('⚡ Quick action triggered')
       onTrackingAction('done', true)
     }
   }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
@@ -346,7 +310,6 @@ const UnifiedTrackingButton = ({
   const handlePointerDown = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('👇 Pointer down - type:', e.pointerType, 'button:', e.button)
     if (!isExpanded && e.button === 0) { // Only left mouse button or touch
       handlePressStart()
     }
@@ -355,14 +318,12 @@ const UnifiedTrackingButton = ({
   const handlePointerUp = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('👆 Pointer up - type:', e.pointerType)
     if (!isExpanded) {
       handlePressEnd()
     }
   }, [isExpanded, handlePressEnd])
 
   const handlePointerLeave = useCallback((e) => {
-    console.log('🚪 Pointer leave - type:', e.pointerType)
     if (isPressed && !isExpanded) {
       handlePressEnd()
     }
@@ -371,7 +332,6 @@ const UnifiedTrackingButton = ({
   // Touch event handlers for better mobile support
   const handleTouchStart = useCallback((e) => {
     e.preventDefault()
-    console.log('📱 Touch start - touches:', e.touches.length)
     if (!isExpanded && e.touches.length === 1) { // Single touch only
       handlePressStart()
     }
@@ -379,7 +339,6 @@ const UnifiedTrackingButton = ({
 
   const handleTouchEnd = useCallback((e) => {
     e.preventDefault()
-    console.log('📱 Touch end - touches:', e.touches.length)
     if (!isExpanded) {
       handlePressEnd()
     }
@@ -388,7 +347,6 @@ const UnifiedTrackingButton = ({
   // Mouse event handlers for desktop
   const handleMouseDown = useCallback((e) => {
     e.preventDefault()
-    console.log('🖱️ Mouse down - button:', e.button)
     if (!isExpanded && e.button === 0) { // Left mouse button only
       handlePressStart()
     }
@@ -396,14 +354,12 @@ const UnifiedTrackingButton = ({
 
   const handleMouseUp = useCallback((e) => {
     e.preventDefault()
-    console.log('🖱️ Mouse up - button:', e.button)
     if (!isExpanded) {
       handlePressEnd()
     }
   }, [isExpanded, handlePressEnd])
 
   const handleMouseLeave = useCallback((e) => {
-    console.log('🖱️ Mouse leave')
     if (isPressed && !isExpanded) {
       handlePressEnd()
     }
@@ -474,40 +430,40 @@ const UnifiedTrackingButton = ({
         }}
         className="absolute inset-0 pointer-events-none z-20"
       >
-        {/* Up - Camera - Much further up (increased from -32 to -48) */}
+        {/* Up - Camera - Moved even higher for desktop, responsive for mobile */}
         <div className={`absolute -top-48 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
           gestureDirection === 'up' ? 'scale-125 text-primary-500' : 'text-gray-400'
         }`}>
           <div className="p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
             <Camera className="w-10 h-10" />
           </div>
-          <div className="text-center mt-4">
+          <div className="text-center mt-4 hidden sm:block">
             <div className="text-base font-bold text-gray-700">Photo</div>
             <div className="text-sm text-gray-500">Swipe up</div>
           </div>
         </div>
 
-        {/* Right - Comment - Much further right (increased from -32 to -48) */}
-        <div className={`absolute top-1/2 -right-48 transform -translate-y-1/2 transition-all duration-300 ${
+        {/* Right - Comment - Responsive positioning to stay within viewport */}
+        <div className={`absolute top-1/2 -right-32 sm:-right-48 lg:-right-56 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'right' ? 'scale-125 text-success-500' : 'text-gray-400'
         }`}>
           <div className="p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
             <MessageCircle className="w-10 h-10" />
           </div>
-          <div className="text-center mt-4">
+          <div className="text-center mt-4 hidden sm:block">
             <div className="text-base font-bold text-gray-700">Comment</div>
             <div className="text-sm text-gray-500">Swipe right</div>
           </div>
         </div>
 
-        {/* Left - Not Done - Much further left (increased from -32 to -48) */}
-        <div className={`absolute top-1/2 -left-48 transform -translate-y-1/2 transition-all duration-300 ${
+        {/* Left - Not Done - Responsive positioning to stay within viewport */}
+        <div className={`absolute top-1/2 -left-32 sm:-left-48 lg:-left-56 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'left' ? 'scale-125 text-error-500' : 'text-gray-400'
         }`}>
           <div className="p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
             <X className="w-10 h-10" />
           </div>
-          <div className="text-center mt-4">
+          <div className="text-center mt-4 hidden sm:block">
             <div className="text-base font-bold text-gray-700">Skip</div>
             <div className="text-sm text-gray-500">Swipe left</div>
           </div>
@@ -595,12 +551,12 @@ const UnifiedTrackingButton = ({
 
       {/* Instructions - Moved much further down (increased from -40 to -56) */}
       {isExpanded && (
-        <div className="absolute -bottom-56 left-1/2 transform -translate-x-1/2 text-center">
+        <div className="absolute -bottom-48 sm:-bottom-56 lg:-bottom-64 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-4">
             <p className="text-xl font-bold text-gray-800">
               Swipe to complete
             </p>
-            <div className="flex items-center justify-center space-x-8 text-sm text-gray-600">
+            <div className="hidden sm:flex items-center justify-center space-x-8 text-sm text-gray-600">
               <div className="flex flex-col items-center space-y-1">
                 <div className="w-3 h-3 bg-success-400 rounded-full"></div>
                 <span className="font-medium">Right: Comment</span>
@@ -614,12 +570,16 @@ const UnifiedTrackingButton = ({
                 <span className="font-medium">Left: Skip</span>
               </div>
             </div>
+            {/* Mobile-friendly simplified instructions */}
+            <div className="sm:hidden text-sm text-gray-600">
+              <p>Swipe in any direction to complete</p>
+            </div>
           </div>
         </div>
       )}
 
       {/* Debug Info (development only) */}
-      {process.env.NODE_ENV === 'development' && (
+      {import.meta.env.DEV && (
         <div className="absolute -bottom-72 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white/80 p-3 rounded-lg border">
           <div className="grid grid-cols-2 gap-2">
             <div>Pressed: {isPressed.toString()}</div>
@@ -628,6 +588,8 @@ const UnifiedTrackingButton = ({
             <div>Direction: {gestureDirection || 'none'}</div>
             <div>Goal: {selectedGoal?.name || 'none'}</div>
             <div>Disabled: {disabled.toString()}</div>
+            <div>Callback: {onTrackingAction ? 'present' : 'missing'}</div>
+            <div>Photo CB: {onPhotoCapture ? 'present' : 'missing'}</div>
           </div>
         </div>
       )}

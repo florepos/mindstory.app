@@ -346,13 +346,14 @@ const TrackingScreen = ({ onBack }) => {
     const file = event.target.files?.[0]
     if (!file || !selectedGoal) return
 
-    console.log('File selected:', file.name, file.type, file.size)
+    console.log('📁 File selected:', file.name, file.type, file.size)
 
     setSelectedPhotoFile(file)
     setPhotoPreviewUrl(URL.createObjectURL(file))
     setPendingEntry({ status: 'done_with_photo' })
     
     // Always show the countable modal for photo entries to allow adding comments
+    console.log('📝 Opening modal for photo entry')
     setShowCountableModal(true)
 
     event.target.value = ''
@@ -362,7 +363,7 @@ const TrackingScreen = ({ onBack }) => {
     if (!selectedGoal) return
 
     try {
-      console.log('Saving entry:', entryData)
+      console.log('💾 Starting to save entry:', entryData)
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       
       if (userError || !user) {
@@ -372,9 +373,9 @@ const TrackingScreen = ({ onBack }) => {
       let photoUrl = null
 
       if (entryData.status === 'done_with_photo' && selectedPhotoFile) {
-        console.log('Processing photo upload...')
+        console.log('📤 Processing photo upload...')
         photoUrl = await uploadPhoto(selectedPhotoFile)
-        console.log('Photo uploaded successfully:', photoUrl)
+        console.log('✅ Photo uploaded successfully:', photoUrl)
       }
 
       const finalEntryData = {
@@ -392,7 +393,7 @@ const TrackingScreen = ({ onBack }) => {
         finalEntryData.photo_url = photoUrl
       }
 
-      console.log('Inserting entry data:', finalEntryData)
+      console.log('📝 Inserting entry data into database:', finalEntryData)
 
       const { data, error } = await supabase
         .from('goal_entries')
@@ -400,11 +401,11 @@ const TrackingScreen = ({ onBack }) => {
         .select()
 
       if (error) {
-        console.error('Database insert error:', error)
+        console.error('❌ Database insert error:', error)
         throw error
       }
 
-      console.log('Entry saved successfully:', data)
+      console.log('✅ Entry saved successfully to database:', data)
 
       // Reset states
       setPendingEntry(null)
@@ -416,6 +417,7 @@ const TrackingScreen = ({ onBack }) => {
       setShowCountableModal(false)
       
       // Refresh entries
+      console.log('🔄 Refreshing entries and completions...')
       fetchEntries()
 
       // Refresh today's completions
@@ -425,8 +427,10 @@ const TrackingScreen = ({ onBack }) => {
       setTrackingAction(entryData.status)
       setTimeout(() => setTrackingAction(null), 2000)
 
+      console.log('🎉 Entry tracking completed successfully!')
+
     } catch (error) {
-      console.error('Error saving entry:', error)
+      console.error('❌ Error saving entry:', error)
       alert(`Error saving entry: ${error.message}`)
     }
   }
@@ -435,16 +439,19 @@ const TrackingScreen = ({ onBack }) => {
   const handleTrackingAction = async (action, needsComment = false) => {
     if (!selectedGoal) return
 
-    console.log('Tracking action:', action, 'needsComment:', needsComment)
+    console.log('🎯 Tracking action received:', action, 'needsComment:', needsComment)
 
     if (action === 'done_with_photo') {
+      console.log('📸 Triggering photo capture')
       fileInputRef.current?.click()
     } else {
       const entry = { status: action }
       if (selectedGoal.is_countable || needsComment) {
+        console.log('📝 Opening countable modal for entry:', entry)
         setPendingEntry(entry)
         setShowCountableModal(true)
       } else {
+        console.log('💾 Saving entry directly:', entry)
         await saveEntry(entry)
       }
     }
@@ -452,7 +459,7 @@ const TrackingScreen = ({ onBack }) => {
 
   // Handle photo capture from unified button
   const handlePhotoCapture = () => {
-    console.log('Photo capture triggered')
+    console.log('📸 Photo capture triggered from unified button')
     fileInputRef.current?.click()
   }
 
