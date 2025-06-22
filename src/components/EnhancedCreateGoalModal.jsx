@@ -23,7 +23,16 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
   })
   const [inviteEmails, setInviteEmails] = useState([''])
 
-  const symbolOptions = ['🎯', '💪', '📚', '🏃', '🧘', '💼', '🎨', '🌱', '⭐', '🔥', '💎', '🚀', '🍎', '💧', '🎵', '📱']
+  const symbolOptions = [
+    '🎯', '💪', '📚', '🏃', '🧘', '💼', '🎨', '🌱', '⭐', '🔥', '💎', '🚀', 
+    '🍎', '💧', '🎵', '📱', '🏆', '⚡', '🌟', '🎪', '🎭', '🎨', '🎬', '🎮',
+    '🏀', '⚽', '🎾', '🏊', '🚴', '🧗', '🏋️', '🤸', '🧘', '🏃', '🚶', '🏌️',
+    '📖', '✍️', '🔬', '🧪', '🔭', '🎓', '📐', '🧮', '💻', '⌨️', '🖥️', '📊',
+    '🍳', '🥗', '🍕', '🍜', '☕', '🧃', '🥤', '🍰', '🧁', '🍪', '🍫', '🍯',
+    '🌍', '🌱', '🌳', '🌺', '🌸', '🌼', '🌻', '🌹', '🌷', '🌿', '🍀', '🌾',
+    '❤️', '💚', '💙', '💜', '🧡', '💛', '🤍', '🖤', '💖', '💝', '💗', '💓',
+    '🎉', '🎊', '🎈', '🎁', '🎀', '🎂', '🕯️', '✨', '💫', '⭐', '🌟', '💥'
+  ]
   const weekdayOptions = [
     { value: 'monday', label: 'Mon' },
     { value: 'tuesday', label: 'Tue' },
@@ -252,7 +261,7 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
             <label className="block text-lg font-semibold text-gray-700 mb-4">
               Choose Symbol
             </label>
-            <div className="grid grid-cols-8 gap-3">
+            <div className="grid grid-cols-8 gap-3 max-h-64 overflow-y-auto p-2 border border-gray-200 rounded-xl">
               {symbolOptions.map((symbol) => (
                 <button
                   key={symbol}

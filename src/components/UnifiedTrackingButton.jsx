@@ -1,26 +1,24 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { useSpring, animated, config } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
-import { Camera, Check, X, Brain, Heart, Target, Zap, MessageCircle } from 'lucide-react'
+import { Camera, Check, X, MessageCircle } from 'lucide-react'
 
 const UnifiedTrackingButton = ({ 
   onTrackingAction,
   onPhotoCapture,
   selectedGoal,
   disabled = false,
-  className = ''
+  className = '',
+  completionCount = 0
 }) => {
   const [isPressed, setIsPressed] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [progress, setProgress] = useState(0)
   const [gestureDirection, setGestureDirection] = useState(null)
-  const [showInstructions, setShowInstructions] = useState(true)
-  const [hasInteracted, setHasInteracted] = useState(false)
   
   const pressTimer = useRef(null)
   const progressTimer = useRef(null)
   const startTime = useRef(null)
-  const instructionTimer = useRef(null)
   const buttonRef = useRef(null)
 
   const EXPAND_DURATION = 3000
@@ -53,21 +51,6 @@ const UnifiedTrackingButton = ({
     config: config.gentle
   }))
 
-  // Hide instructions after first interaction or timeout
-  useEffect(() => {
-    instructionTimer.current = setTimeout(() => {
-      if (!hasInteracted) {
-        setShowInstructions(false)
-      }
-    }, 8000)
-
-    return () => {
-      if (instructionTimer.current) {
-        clearTimeout(instructionTimer.current)
-      }
-    }
-  }, [hasInteracted])
-
   // Calculate current scale based on progress
   const getCurrentScale = useCallback((currentProgress) => {
     return 1 + (MAX_SCALE - 1) * (currentProgress / 100)
@@ -79,8 +62,6 @@ const UnifiedTrackingButton = ({
 
     console.log('🚀 Press start triggered')
     setIsPressed(true)
-    setShowInstructions(false)
-    setHasInteracted(true)
     startTime.current = Date.now()
     
     // Haptic feedback if available
@@ -314,15 +295,17 @@ const UnifiedTrackingButton = ({
     })
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
-  // Simplified event handlers
+  // Simplified event handlers with better cross-platform support
   const handlePointerDown = useCallback((e) => {
     e.preventDefault()
+    e.stopPropagation()
     console.log('👇 Pointer down - type:', e.pointerType)
     if (!isExpanded) handlePressStart()
   }, [isExpanded, handlePressStart])
 
   const handlePointerUp = useCallback((e) => {
     e.preventDefault()
+    e.stopPropagation()
     console.log('👆 Pointer up - type:', e.pointerType)
     if (!isExpanded) handlePressEnd()
   }, [isExpanded, handlePressEnd])
@@ -346,27 +329,39 @@ const UnifiedTrackingButton = ({
     }
   }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
 
-  // Keyboard support
-  const handleKeyDown = useCallback((e) => {
-    if (disabled || !selectedGoal) return
-    
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault()
-      console.log('⌨️ Key down:', e.key)
-      if (!isPressed && !isExpanded) {
-        handlePressStart()
-      }
-    }
-  }, [disabled, selectedGoal, isPressed, isExpanded, handlePressStart])
+  // Touch event handlers for better mobile support
+  const handleTouchStart = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    console.log('👆 Touch start')
+    if (!isExpanded) handlePressStart()
+  }, [isExpanded, handlePressStart])
 
-  const handleKeyUp = useCallback((e) => {
-    if (e.key === ' ' || e.key === 'Enter') {
-      e.preventDefault()
-      console.log('⌨️ Key up:', e.key)
-      if (isPressed && !isExpanded) {
-        handlePressEnd()
-      }
-    }
+  const handleTouchEnd = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    console.log('👆 Touch end')
+    if (!isExpanded) handlePressEnd()
+  }, [isExpanded, handlePressEnd])
+
+  // Mouse event handlers for desktop
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    console.log('🖱️ Mouse down')
+    if (!isExpanded) handlePressStart()
+  }, [isExpanded, handlePressStart])
+
+  const handleMouseUp = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    console.log('🖱️ Mouse up')
+    if (!isExpanded) handlePressEnd()
+  }, [isExpanded, handlePressEnd])
+
+  const handleMouseLeave = useCallback((e) => {
+    console.log('🖱️ Mouse leave')
+    if (isPressed && !isExpanded) handlePressEnd()
   }, [isPressed, isExpanded, handlePressEnd])
 
   const getGestureColor = (direction) => {
@@ -383,7 +378,7 @@ const UnifiedTrackingButton = ({
       case 'right': return MessageCircle
       case 'left': return X
       case 'up': return Camera
-      default: return Target
+      default: return selectedGoal?.symbol || '🎯'
     }
   }
 
@@ -462,6 +457,15 @@ const UnifiedTrackingButton = ({
         </div>
       </animated.div>
 
+      {/* Completion Count Badge */}
+      {completionCount > 0 && (
+        <div className="absolute -top-4 -right-4 z-30">
+          <div className="bg-gradient-to-r from-success-500 to-success-600 text-white text-sm font-bold px-3 py-1 rounded-full shadow-premium animate-pulse-soft">
+            {completionCount}
+          </div>
+        </div>
+      )}
+
       {/* Main Button */}
       <animated.button
         ref={buttonRef}
@@ -486,12 +490,16 @@ const UnifiedTrackingButton = ({
           borderStyle: 'solid',
           touchAction: 'none'
         }}
+        // Multiple event handlers for maximum compatibility
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        onKeyUp={handleKeyUp}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
         tabIndex={0}
@@ -508,9 +516,8 @@ const UnifiedTrackingButton = ({
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center">
-              <Brain className="w-7 h-7 sm:w-8 sm:h-8 mr-2" />
-              <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
+            <div className="flex items-center justify-center text-4xl sm:text-5xl">
+              {selectedGoal?.symbol || '🎯'}
             </div>
           )}
         </div>
@@ -521,9 +528,9 @@ const UnifiedTrackingButton = ({
         )}
       </animated.button>
 
-      {/* Instructions - Only show when expanded */}
+      {/* Instructions - Only show when expanded and moved down */}
       {isExpanded && (
-        <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
+        <div className="absolute -bottom-32 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-2">
             <p className="text-base font-semibold text-gray-700">
               Swipe to complete
@@ -541,22 +548,6 @@ const UnifiedTrackingButton = ({
                 <div className="w-2 h-2 bg-error-400 rounded-full"></div>
                 <span>Left: Skip</span>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Initial instructions - Only show briefly */}
-      {showInstructions && !isPressed && !isExpanded && (
-        <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
-          <div className="space-y-2">
-            <p className="text-base font-medium text-gray-700">
-              Hold 3s or tap to track
-            </p>
-            <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
-              <div className="w-2 h-2 rounded-full bg-gray-300" />
-              <span>Long press for options • Tap for quick complete</span>
-              <div className="w-2 h-2 rounded-full bg-gray-300" />
             </div>
           </div>
         </div>
