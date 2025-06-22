@@ -22,7 +22,7 @@ const UnifiedTrackingButton = ({
 
   const EXPAND_DURATION = 3000
   const MAX_SCALE = 1.5
-  const GESTURE_THRESHOLD = 80
+  const GESTURE_THRESHOLD = 100 // Increased threshold for better detection
 
   // Main button animation
   const [buttonSpring, buttonApi] = useSpring(() => ({
@@ -242,12 +242,22 @@ const UnifiedTrackingButton = ({
     })
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
-  // Gesture handler using @use-gesture/react
+  // Enhanced gesture handler with better detection
   const bind = useDrag(
     ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], first, last }) => {
-      if (!isExpanded) return
+      if (!isExpanded) {
+        console.log('❌ Gesture ignored - not expanded')
+        return
+      }
 
-      console.log('👆 Gesture:', { active, mx, my, dx, dy, vx, vy, first, last })
+      console.log('👆 Gesture:', { 
+        active, 
+        movement: [Math.round(mx), Math.round(my)], 
+        direction: [dx, dy], 
+        velocity: [Math.round(vx * 100) / 100, Math.round(vy * 100) / 100],
+        first, 
+        last 
+      })
 
       if (first) {
         console.log('🎬 Gesture started')
@@ -258,19 +268,24 @@ const UnifiedTrackingButton = ({
         const distance = Math.sqrt(mx * mx + my * my)
         
         if (distance > 30) {
-          // Determine direction based on movement
+          // Determine direction based on movement with better logic
           let direction = null
-          if (Math.abs(my) > Math.abs(mx)) {
+          const absX = Math.abs(mx)
+          const absY = Math.abs(my)
+          
+          if (absY > absX) {
+            // Vertical movement is dominant
             direction = my < 0 ? 'up' : 'down'
           } else {
+            // Horizontal movement is dominant
             direction = mx > 0 ? 'right' : 'left'
           }
           
-          console.log('📍 Direction detected:', direction, 'distance:', distance)
+          console.log('📍 Direction detected:', direction, 'distance:', Math.round(distance), 'movement:', [Math.round(mx), Math.round(my)])
           setGestureDirection(direction)
           
-          // Visual feedback during gesture
-          if (distance > GESTURE_THRESHOLD) {
+          // Visual feedback during gesture with stronger effect
+          if (distance > GESTURE_THRESHOLD * 0.5) {
             buttonApi.start({
               scale: MAX_SCALE * 1.15,
               glow: 1.8
@@ -282,13 +297,23 @@ const UnifiedTrackingButton = ({
       if (last) {
         console.log('🏁 Gesture ended')
         const distance = Math.sqrt(mx * mx + my * my)
-        const isSwipe = Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3
+        const isSwipe = Math.abs(vx) > 0.2 || Math.abs(vy) > 0.2
         
-        console.log('📊 Final gesture stats:', { distance, isSwipe, threshold: GESTURE_THRESHOLD })
+        console.log('📊 Final gesture stats:', { 
+          distance: Math.round(distance), 
+          isSwipe, 
+          threshold: GESTURE_THRESHOLD,
+          velocity: [Math.round(vx * 100) / 100, Math.round(vy * 100) / 100]
+        })
         
         if (distance > GESTURE_THRESHOLD || isSwipe) {
-          console.log('✅ Gesture threshold met, executing action')
-          executeGestureAction(gestureDirection)
+          console.log('✅ Gesture threshold met, executing action for direction:', gestureDirection)
+          if (gestureDirection && gestureDirection !== 'down') {
+            executeGestureAction(gestureDirection)
+          } else {
+            console.log('❌ Invalid direction or downward gesture, resetting')
+            handlePressEnd()
+          }
         } else {
           console.log('❌ Gesture threshold not met, resetting')
           handlePressEnd()
@@ -296,12 +321,12 @@ const UnifiedTrackingButton = ({
       }
     },
     {
-      axis: undefined,
-      threshold: 10,
+      axis: undefined, // Allow all directions
+      threshold: 10, // Lower threshold for initial detection
       rubberband: true,
       preventDefault: true,
       filterTaps: true,
-      enabled: isExpanded
+      enabled: isExpanded // Only enable when expanded
     }
   )
 
@@ -403,7 +428,7 @@ const UnifiedTrackingButton = ({
   }
 
   return (
-    <div className={`relative flex flex-col items-center ${className}`} style={{ margin: '64px 0' }}>
+    <div className={`relative flex flex-col items-center ${className}`} style={{ margin: '80px 0' }}>
       {/* Progress Ring */}
       <animated.div
         style={{
@@ -441,7 +466,7 @@ const UnifiedTrackingButton = ({
         </svg>
       </animated.div>
 
-      {/* Direction Indicators - Much more spacious layout */}
+      {/* Direction Indicators - MUCH more spacious layout with increased distances */}
       <animated.div
         style={{
           opacity: isExpanded ? indicatorSpring.opacity : 0,
@@ -449,42 +474,42 @@ const UnifiedTrackingButton = ({
         }}
         className="absolute inset-0 pointer-events-none z-20"
       >
-        {/* Up - Camera - Much further up */}
-        <div className={`absolute -top-32 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
+        {/* Up - Camera - Much further up (increased from -32 to -48) */}
+        <div className={`absolute -top-48 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
           gestureDirection === 'up' ? 'scale-125 text-primary-500' : 'text-gray-400'
         }`}>
-          <div className="p-6 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
-            <Camera className="w-8 h-8" />
+          <div className="p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
+            <Camera className="w-10 h-10" />
           </div>
-          <div className="text-center mt-3">
-            <div className="text-sm font-semibold text-gray-700">Photo</div>
-            <div className="text-xs text-gray-500">Swipe up</div>
+          <div className="text-center mt-4">
+            <div className="text-base font-bold text-gray-700">Photo</div>
+            <div className="text-sm text-gray-500">Swipe up</div>
           </div>
         </div>
 
-        {/* Right - Comment - Much further right */}
-        <div className={`absolute top-1/2 -right-32 transform -translate-y-1/2 transition-all duration-300 ${
+        {/* Right - Comment - Much further right (increased from -32 to -48) */}
+        <div className={`absolute top-1/2 -right-48 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'right' ? 'scale-125 text-success-500' : 'text-gray-400'
         }`}>
-          <div className="p-6 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
-            <MessageCircle className="w-8 h-8" />
+          <div className="p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
+            <MessageCircle className="w-10 h-10" />
           </div>
-          <div className="text-center mt-3">
-            <div className="text-sm font-semibold text-gray-700">Comment</div>
-            <div className="text-xs text-gray-500">Swipe right</div>
+          <div className="text-center mt-4">
+            <div className="text-base font-bold text-gray-700">Comment</div>
+            <div className="text-sm text-gray-500">Swipe right</div>
           </div>
         </div>
 
-        {/* Left - Not Done - Much further left */}
-        <div className={`absolute top-1/2 -left-32 transform -translate-y-1/2 transition-all duration-300 ${
+        {/* Left - Not Done - Much further left (increased from -32 to -48) */}
+        <div className={`absolute top-1/2 -left-48 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'left' ? 'scale-125 text-error-500' : 'text-gray-400'
         }`}>
-          <div className="p-6 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
-            <X className="w-8 h-8" />
+          <div className="p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
+            <X className="w-10 h-10" />
           </div>
-          <div className="text-center mt-3">
-            <div className="text-sm font-semibold text-gray-700">Skip</div>
-            <div className="text-xs text-gray-500">Swipe left</div>
+          <div className="text-center mt-4">
+            <div className="text-base font-bold text-gray-700">Skip</div>
+            <div className="text-sm text-gray-500">Swipe left</div>
           </div>
         </div>
       </animated.div>
@@ -568,9 +593,9 @@ const UnifiedTrackingButton = ({
         )}
       </animated.button>
 
-      {/* Instructions - Moved much further down */}
+      {/* Instructions - Moved much further down (increased from -40 to -56) */}
       {isExpanded && (
-        <div className="absolute -bottom-40 left-1/2 transform -translate-x-1/2 text-center">
+        <div className="absolute -bottom-56 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-4">
             <p className="text-xl font-bold text-gray-800">
               Swipe to complete
@@ -593,14 +618,17 @@ const UnifiedTrackingButton = ({
         </div>
       )}
 
-      {/* Debug Info (remove in production) */}
+      {/* Debug Info (development only) */}
       {process.env.NODE_ENV === 'development' && (
-        <div className="absolute -bottom-60 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white/80 p-2 rounded">
-          <div>Pressed: {isPressed.toString()}</div>
-          <div>Expanded: {isExpanded.toString()}</div>
-          <div>Progress: {Math.round(progress)}%</div>
-          <div>Direction: {gestureDirection || 'none'}</div>
-          <div>Goal: {selectedGoal?.name || 'none'}</div>
+        <div className="absolute -bottom-72 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white/80 p-3 rounded-lg border">
+          <div className="grid grid-cols-2 gap-2">
+            <div>Pressed: {isPressed.toString()}</div>
+            <div>Expanded: {isExpanded.toString()}</div>
+            <div>Progress: {Math.round(progress)}%</div>
+            <div>Direction: {gestureDirection || 'none'}</div>
+            <div>Goal: {selectedGoal?.name || 'none'}</div>
+            <div>Disabled: {disabled.toString()}</div>
+          </div>
         </div>
       )}
     </div>
