@@ -8,6 +8,8 @@ export default {
       },
       colors: {
         border: '#e5e7eb',
+        accent: '#8B5CF6',
+        bgGradientFrom: '#FFE4B5',
         primary: {
           50: '#fff7ed',
           100: '#ffedd5',
