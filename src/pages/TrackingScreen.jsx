@@ -469,18 +469,22 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  // Enhanced share functionality
+  // Enhanced share functionality with proper Web Share API check
   const handleEntryShare = async (entry) => {
     try {
       const shareText = `🎯 ${entry.goals?.name}\n${getStatusText(entry.status)} on ${formatDate(entry.completed_at)}\n\n#MindStory #Goals #Progress`
       
-      if (navigator.share) {
-        await navigator.share({
-          title: `${entry.goals?.name} - Progress`,
-          text: shareText,
-          url: window.location.href
-        })
+      const shareData = {
+        title: `${entry.goals?.name} - Progress`,
+        text: shareText,
+        url: window.location.href
+      }
+
+      // Check if Web Share API is supported and can share this data
+      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+        await navigator.share(shareData)
       } else if (navigator.clipboard) {
+        // Fallback to clipboard
         await navigator.clipboard.writeText(shareText)
         alert('Progress copied to clipboard!')
       } else {
@@ -496,7 +500,26 @@ const TrackingScreen = ({ onBack }) => {
     } catch (error) {
       console.error('Error sharing entry:', error)
       if (error.name !== 'AbortError') {
-        alert('Failed to share. Please try again.')
+        // If sharing fails, try clipboard as fallback
+        try {
+          const shareText = `🎯 ${entry.goals?.name}\n${getStatusText(entry.status)} on ${formatDate(entry.completed_at)}\n\n#MindStory #Goals #Progress`
+          if (navigator.clipboard) {
+            await navigator.clipboard.writeText(shareText)
+            alert('Progress copied to clipboard!')
+          } else {
+            // Final fallback for older browsers
+            const textArea = document.createElement('textarea')
+            textArea.value = shareText
+            document.body.appendChild(textArea)
+            textArea.select()
+            document.execCommand('copy')
+            document.body.removeChild(textArea)
+            alert('Progress copied to clipboard!')
+          }
+        } catch (clipboardError) {
+          console.error('Clipboard fallback failed:', clipboardError)
+          alert('Failed to share. Please try again.')
+        }
       }
     }
   }
