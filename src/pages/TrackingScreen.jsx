@@ -323,12 +323,8 @@ const TrackingScreen = ({ onBack }) => {
     setPhotoPreviewUrl(URL.createObjectURL(file))
     setPendingEntry({ status: 'done_with_photo' })
     
-    if (selectedGoal.is_countable) {
-      setShowCountableModal(true)
-    } else {
-      // For non-countable goals, save directly
-      saveEntry({ status: 'done_with_photo' })
-    }
+    // Always show the countable modal for photo entries to allow adding comments
+    setShowCountableModal(true)
 
     event.target.value = ''
   }
@@ -756,7 +752,7 @@ const TrackingScreen = ({ onBack }) => {
         </div>
       </section>
 
-      {/* Unified Tracking Interface - Removed redundant "Track: " text */}
+      {/* Unified Tracking Interface */}
       <section className="relative z-20 flex justify-center py-20 sm:py-24 lg:py-28">
         <div className="text-center">
           <UnifiedTrackingButton

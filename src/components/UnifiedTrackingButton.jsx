@@ -475,9 +475,9 @@ const UnifiedTrackingButton = ({
         )}
       </animated.button>
 
-      {/* Instructions */}
-      <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
-        {isExpanded ? (
+      {/* Instructions - Only show when needed */}
+      {isExpanded && (
+        <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-2">
             <p className="text-base font-semibold text-gray-700">
               Swipe to complete
@@ -497,29 +497,24 @@ const UnifiedTrackingButton = ({
               </div>
             </div>
           </div>
-        ) : showInstructions ? (
+        </div>
+      )}
+
+      {/* Initial instructions - Only show briefly */}
+      {showInstructions && !isPressed && !isExpanded && (
+        <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-2">
             <p className="text-base font-medium text-gray-700">
-              {isPressed ? `${Math.round(progress)}% - Keep holding...` : 'Hold 3s or tap to track'}
+              Hold 3s or tap to track
             </p>
             <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
-              <div className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-                isPressed ? 'bg-primary-500 animate-pulse' : 'bg-gray-300'
-              }`} />
+              <div className="w-2 h-2 rounded-full bg-gray-300" />
               <span>Long press for options • Tap for quick complete</span>
-              <div className={`w-2 h-2 rounded-full transition-colors duration-300 ${
-                isPressed ? 'bg-primary-500 animate-pulse' : 'bg-gray-300'
-              }`} />
+              <div className="w-2 h-2 rounded-full bg-gray-300" />
             </div>
           </div>
-        ) : (
-          <div className="space-y-1">
-            <p className="text-sm text-gray-600">
-              {selectedGoal ? selectedGoal.name : 'Select a goal first'}
-            </p>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
