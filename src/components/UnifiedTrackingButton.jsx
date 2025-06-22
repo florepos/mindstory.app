@@ -30,7 +30,7 @@ const UnifiedTrackingButton = ({
   const [buttonSpring, buttonApi] = useSpring(() => ({
     scale: 1,
     rotate: 0,
-    borderRadius: 50, // percentage
+    borderRadius: 50,
     shadow: 20,
     glow: 0,
     borderWidth: 3,
@@ -95,6 +95,7 @@ const UnifiedTrackingButton = ({
   const handlePressStart = useCallback(() => {
     if (disabled || !selectedGoal) return
 
+    console.log('Press start triggered')
     setIsPressed(true)
     setShowInstructions(false)
     setHasInteracted(true)
@@ -164,6 +165,7 @@ const UnifiedTrackingButton = ({
 
   // Handle expansion completion
   const handleExpansionComplete = useCallback(() => {
+    console.log('Expansion complete')
     setIsExpanded(true)
     setProgress(100)
     
@@ -186,6 +188,7 @@ const UnifiedTrackingButton = ({
   const handlePressEnd = useCallback(() => {
     if (!isPressed && !isExpanded) return
 
+    console.log('Press end triggered')
     setIsPressed(false)
     setIsExpanded(false)
     setProgress(0)
@@ -232,6 +235,8 @@ const UnifiedTrackingButton = ({
     ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], event }) => {
       if (!isExpanded) return
 
+      console.log('Gesture detected:', { active, mx, my, dx, dy, vx, vy })
+
       // Prevent default touch behaviors
       if (event) {
         event.preventDefault()
@@ -250,6 +255,7 @@ const UnifiedTrackingButton = ({
           direction = mx > 0 ? 'right' : 'left'
         }
         
+        console.log('Gesture direction:', direction)
         setGestureDirection(direction)
         
         // Visual feedback during gesture
@@ -261,6 +267,7 @@ const UnifiedTrackingButton = ({
         }
       } else if (!active && (isSwipe || distance > GESTURE_THRESHOLD)) {
         // Execute gesture action
+        console.log('Executing gesture action:', gestureDirection)
         executeGestureAction(gestureDirection)
       } else if (!active) {
         // Reset if no significant gesture
@@ -285,6 +292,7 @@ const UnifiedTrackingButton = ({
   const executeGestureAction = useCallback((direction) => {
     if (!onTrackingAction) return
 
+    console.log('Executing action for direction:', direction)
     let action = 'done'
     let needsComment = false
 
@@ -328,36 +336,42 @@ const UnifiedTrackingButton = ({
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
   // Event handlers with improved touch support
-  const handleMouseDown = (e) => {
+  const handleMouseDown = useCallback((e) => {
     e.preventDefault()
+    console.log('Mouse down')
     if (!isExpanded) handlePressStart()
-  }
+  }, [isExpanded, handlePressStart])
 
-  const handleMouseUp = (e) => {
+  const handleMouseUp = useCallback((e) => {
     e.preventDefault()
+    console.log('Mouse up')
     if (!isExpanded) handlePressEnd()
-  }
+  }, [isExpanded, handlePressEnd])
 
-  const handleTouchStart = (e) => {
+  const handleTouchStart = useCallback((e) => {
     e.preventDefault()
+    console.log('Touch start')
     if (!isExpanded) handlePressStart()
-  }
+  }, [isExpanded, handlePressStart])
 
-  const handleTouchEnd = (e) => {
+  const handleTouchEnd = useCallback((e) => {
     e.preventDefault()
+    console.log('Touch end')
     if (!isExpanded) handlePressEnd()
-  }
+  }, [isExpanded, handlePressEnd])
 
   // Handle click for quick actions when not expanded
-  const handleClick = (e) => {
+  const handleClick = useCallback((e) => {
     e.preventDefault()
+    console.log('Click triggered, isExpanded:', isExpanded, 'isPressed:', isPressed)
     if (!isExpanded && !isPressed && selectedGoal) {
       // Quick tap action - mark as done with comment
       if (onTrackingAction) {
+        console.log('Quick action triggered')
         onTrackingAction('done', true)
       }
     }
-  }
+  }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
 
   const getGestureColor = (direction) => {
     switch (direction) {
