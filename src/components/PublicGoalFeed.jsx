@@ -27,27 +27,56 @@ const PublicGoalFeed = () => {
             name,
             symbol,
             goal_type,
+            privacy_level,
             user_id
           )
         `)
         .order('completed_at', { ascending: false })
         .limit(10)
 
-      if (entryError) throw entryError
+      if (entryError) {
+        console.error('Entry fetch error:', entryError)
+        throw entryError
+      }
 
-      // Filter for public entries only
+      // Filter for public entries only - check both goal_type and privacy_level
       const publicEntryData = entryData.filter(entry => 
-        entry.goals && entry.goals.goal_type === 'public'
+        entry.goals && (
+          entry.goals.goal_type === 'public' || 
+          entry.goals.privacy_level === 'public_challenge'
+        )
       )
+
+      if (publicEntryData.length === 0) {
+        setPublicEntries([])
+        return
+      }
 
       // Get user profiles for entry creators
       const userIds = publicEntryData.map(e => e.user_id).filter(Boolean)
+      
+      if (userIds.length === 0) {
+        setPublicEntries(publicEntryData.map(entry => ({
+          ...entry,
+          user_profile: null
+        })))
+        return
+      }
+
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('user_id, display_name, avatar_url')
         .in('user_id', userIds)
 
-      if (profileError) throw profileError
+      if (profileError) {
+        console.error('Profile fetch error:', profileError)
+        // Continue without profiles rather than failing completely
+        setPublicEntries(publicEntryData.map(entry => ({
+          ...entry,
+          user_profile: null
+        })))
+        return
+      }
 
       // Combine the data
       const enrichedEntries = publicEntryData.map(entry => {
@@ -148,6 +177,18 @@ const PublicGoalFeed = () => {
 
   return (
     <div className="premium-card p-8">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-4">
+          <div className="p-3 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-2xl">
+            <Globe className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold gradient-text-premium">Community Goals</h2>
+            <p className="text-gray-600">See what others are achieving</p>
+          </div>
+        </div>
+      </div>
+
       <div className="space-y-6">
         {publicEntries.map((entry) => (
           <div

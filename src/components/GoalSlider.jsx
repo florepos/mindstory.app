@@ -32,6 +32,7 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
         return
       }
 
+      // Simple query without complex joins to avoid RLS issues
       const { data, error } = await supabase
         .from('goals')
         .select('*')
@@ -39,6 +40,7 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
         .order('created_at', { ascending: false })
 
       if (error) {
+        console.error('Supabase error:', error)
         throw error
       }
 
@@ -119,8 +121,10 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
       case 'private':
         return <Lock className="w-3 h-3 text-gray-500" />
       case 'friends':
+      case 'friends_challenge':
         return <Users className="w-3 h-3 text-blue-500" />
       case 'public':
+      case 'public_challenge':
         return <Globe className="w-3 h-3 text-green-500" />
       default:
         return null
@@ -229,8 +233,8 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   
-                  {/* Friends Goal Indicator */}
-                  {goal.goal_type === 'friends' && (
+                  {/* Goal Type Indicator */}
+                  {(goal.goal_type === 'friends' || goal.goal_type === 'friends_challenge' || goal.goal_type === 'public' || goal.goal_type === 'public_challenge') && (
                     <div className="absolute top-4 right-4 z-20">
                       <div className="p-2 bg-white/20 backdrop-blur-sm rounded-full">
                         {getGoalTypeIcon(goal.goal_type)}
@@ -251,7 +255,7 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
                         {goal.name}
                       </h3>
                       <div className="flex items-center justify-center mb-2">
-                        {getGoalTypeIcon(goal.goal_type)}
+                        {getGoalTypeIcon(goal.goal_type || goal.privacy_level)}
                       </div>
                       {goal.description && (
                         <p className={`text-base line-clamp-3 ${
@@ -263,13 +267,13 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
                     </div>
 
                     <div className="flex items-center justify-between text-sm mb-6">
-                      {goal.goal_type && (
+                      {(goal.goal_type || goal.privacy_level) && (
                         <span className={`px-4 py-2 rounded-full capitalize font-semibold ${
                           isSelected 
                             ? 'bg-white/20 text-white' 
                             : 'bg-primary-100 text-primary-700'
                         }`}>
-                          {goal.goal_type}
+                          {(goal.goal_type || goal.privacy_level)?.replace('_', ' ')}
                         </span>
                       )}
                       <button
