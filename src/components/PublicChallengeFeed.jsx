@@ -22,7 +22,7 @@ const PublicChallengeFeed = () => {
         .from('goals')
         .select(`
           *,
-          profiles!goals_user_id_fkey (
+          profiles (
             display_name,
             avatar_url
           ),
@@ -31,7 +31,7 @@ const PublicChallengeFeed = () => {
             user_id,
             total_progress,
             last_activity,
-            profiles!goal_participants_user_id_fkey (
+            profiles (
               display_name,
               avatar_url
             )
