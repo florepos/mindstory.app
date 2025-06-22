@@ -25,38 +25,59 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
 
   const fetchCollaborators = async () => {
     try {
-      // Use separate queries to avoid relationship errors
-      const { data: collaboratorData, error: collaboratorError } = await supabase
+      // Use the new profile_id relationship for better performance
+      const { data, error } = await supabase
         .from('goal_collaborators')
-        .select('*')
+        .select(`
+          *,
+          profiles!fk_goal_collaborators_profiles (
+            display_name,
+            avatar_url,
+            user_id
+          )
+        `)
         .eq('goal_id', goal.id)
         .order('created_at', { ascending: true })
 
-      if (collaboratorError) throw collaboratorError
+      if (error) {
+        console.error('Collaborators fetch error:', error)
+        // Fallback to separate queries if the join fails
+        const { data: collaboratorData, error: collaboratorError } = await supabase
+          .from('goal_collaborators')
+          .select('*')
+          .eq('goal_id', goal.id)
+          .order('created_at', { ascending: true })
 
-      // Get profiles for collaborators
-      const userIds = collaboratorData.map(c => c.user_id).filter(Boolean)
-      if (userIds.length === 0) {
-        setCollaborators([])
+        if (collaboratorError) throw collaboratorError
+
+        // Get profiles for collaborators
+        const userIds = collaboratorData.map(c => c.user_id).filter(Boolean)
+        if (userIds.length === 0) {
+          setCollaborators([])
+          return
+        }
+
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('user_id, display_name, avatar_url')
+          .in('user_id', userIds)
+
+        if (profileError) throw profileError
+
+        // Combine the data
+        const enrichedCollaborators = collaboratorData.map(collaborator => ({
+          ...collaborator,
+          profiles: profileData.find(p => p.user_id === collaborator.user_id)
+        }))
+
+        setCollaborators(enrichedCollaborators)
         return
       }
 
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('user_id, display_name, avatar_url')
-        .in('user_id', userIds)
-
-      if (profileError) throw profileError
-
-      // Combine the data
-      const enrichedCollaborators = collaboratorData.map(collaborator => ({
-        ...collaborator,
-        profile: profileData.find(p => p.user_id === collaborator.user_id)
-      }))
-
-      setCollaborators(enrichedCollaborators)
+      setCollaborators(data || [])
     } catch (error) {
       console.error('Error fetching collaborators:', error)
+      setError('Failed to load collaborators')
     }
   }
 
@@ -85,7 +106,7 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
 
       // Check if user already exists as collaborator
       const existingCollaborator = collaborators.find(c => 
-        c.profile?.email === newInviteEmail.trim()
+        c.profiles?.email === newInviteEmail.trim()
       )
 
       if (existingCollaborator) {
@@ -227,7 +248,7 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Type:</span>
-                <span className="font-medium capitalize">{goal.goal_type}</span>
+                <span className="font-medium capitalize">{goal.privacy_level || goal.goal_type}</span>
               </div>
               {goal.frequency && (
                 <div className="flex justify-between">
@@ -251,7 +272,7 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
           </div>
 
           {/* Collaborators */}
-          {goal.goal_type === 'friends_challenge' && (
+          {(goal.privacy_level === 'friends_challenge' || goal.goal_type === 'friends') && (
             <div className="glass-card p-6 rounded-xl">
               <h4 className="font-bold text-lg text-gray-800 mb-4">Collaborators</h4>
               
@@ -259,10 +280,10 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
                 {collaborators.map((collaborator) => (
                   <div key={collaborator.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      {collaborator.profile?.avatar_url ? (
+                      {collaborator.profiles?.avatar_url ? (
                         <img
-                          src={collaborator.profile.avatar_url}
-                          alt={collaborator.profile.display_name}
+                          src={collaborator.profiles.avatar_url}
+                          alt={collaborator.profiles.display_name}
                           className="w-10 h-10 rounded-full object-cover"
                         />
                       ) : (
@@ -272,7 +293,7 @@ const GoalEditModal = ({ isOpen, goal, onClose, onGoalUpdated, onGoalDeleted }) 
                       )}
                       <div>
                         <div className="font-medium text-gray-800">
-                          {collaborator.profile?.display_name || 'Unknown User'}
+                          {collaborator.profiles?.display_name || 'Unknown User'}
                         </div>
                         <div className="text-sm text-gray-600 flex items-center space-x-1">
                           {getRoleIcon(collaborator.role)}

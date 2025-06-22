@@ -96,19 +96,6 @@ const PublicGoalFeed = () => {
     }
   }
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'done':
-        return <Check className="w-4 h-4 text-white" />
-      case 'done_with_photo':
-        return <Camera className="w-4 h-4 text-white" />
-      case 'not_done':
-        return <X className="w-4 h-4 text-white" />
-      default:
-        return null
-    }
-  }
-
   const getStatusColor = (status) => {
     switch (status) {
       case 'done':
@@ -119,6 +106,19 @@ const PublicGoalFeed = () => {
         return 'from-error-500 to-error-600'
       default:
         return 'from-gray-400 to-gray-500'
+    }
+  }
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'done':
+        return <Check className="w-4 h-4 text-white" />
+      case 'done_with_photo':
+        return <Camera className="w-4 h-4 text-white" />
+      case 'not_done':
+        return <X className="w-4 h-4 text-white" />
+      default:
+        return null
     }
   }
 
