@@ -17,7 +17,8 @@ const PublicGoalFeed = () => {
       setLoading(true)
       setError(null)
 
-      const { data, error } = await supabase
+      // Use separate queries to avoid complex joins that cause relationship errors
+      const { data: entryData, error: entryError } = await supabase
         .from('goal_entries')
         .select(`
           *,
@@ -27,18 +28,37 @@ const PublicGoalFeed = () => {
             symbol,
             goal_type,
             user_id
-          ),
-          user_id!inner(
-            display_name,
-            avatar_url
           )
         `)
         .order('completed_at', { ascending: false })
         .limit(10)
 
-      if (error) throw error
+      if (entryError) throw entryError
 
-      setPublicEntries(data || [])
+      // Filter for public entries only
+      const publicEntryData = entryData.filter(entry => 
+        entry.goals && entry.goals.goal_type === 'public'
+      )
+
+      // Get user profiles for entry creators
+      const userIds = publicEntryData.map(e => e.user_id).filter(Boolean)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', userIds)
+
+      if (profileError) throw profileError
+
+      // Combine the data
+      const enrichedEntries = publicEntryData.map(entry => {
+        const userProfile = profileData.find(p => p.user_id === entry.user_id)
+        return {
+          ...entry,
+          user_profile: userProfile
+        }
+      })
+
+      setPublicEntries(enrichedEntries)
     } catch (error) {
       console.error('Error fetching public entries:', error)
       setError(error.message)
@@ -85,7 +105,6 @@ const PublicGoalFeed = () => {
         return 'Unknown'
     }
   }
-
 
   if (loading) {
     return (
@@ -141,10 +160,10 @@ const PublicGoalFeed = () => {
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  {entry.user_id?.avatar_url ? (
+                  {entry.user_profile?.avatar_url ? (
                     <img
-                      src={entry.user_id.avatar_url}
-                      alt={entry.user_id.display_name}
+                      src={entry.user_profile.avatar_url}
+                      alt={entry.user_profile.display_name}
                       className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-premium"
                     />
                   ) : (
@@ -154,7 +173,7 @@ const PublicGoalFeed = () => {
                   )}
                   <div>
                     <div className="font-bold text-gray-800">
-                      {entry.user_id?.display_name || 'Anonymous User'}
+                      {entry.user_profile?.display_name || 'Anonymous User'}
                     </div>
                     <div className="text-sm text-gray-600 flex items-center space-x-1">
                       <Globe className="w-3 h-3" />

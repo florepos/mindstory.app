@@ -18,45 +18,87 @@ const PublicChallengeFeed = () => {
       setLoading(true)
       setError(null)
 
-      let query = supabase
+      // Use separate queries to avoid complex joins that cause relationship errors
+      const { data: challengeData, error: challengeError } = await supabase
         .from('goals')
-        .select(`
-          *,
-          user_id!inner(
-            display_name,
-            avatar_url
-          ),
-          goal_participants (
-            id,
-            user_id,
-            total_progress,
-            last_activity,
-            user_id!inner(
-              display_name,
-              avatar_url
-            )
-          )
-        `)
+        .select('*')
         .eq('privacy_level', 'public_challenge')
         .order('created_at', { ascending: false })
+        .limit(20)
 
-      // Apply filters
+      if (challengeError) throw challengeError
+
+      // Get user profiles for challenge creators
+      const userIds = challengeData.map(c => c.user_id).filter(Boolean)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', userIds)
+
+      if (profileError) throw profileError
+
+      // Get participants for each challenge
+      const challengeIds = challengeData.map(c => c.id)
+      const { data: participantData, error: participantError } = await supabase
+        .from('goal_participants')
+        .select(`
+          goal_id,
+          user_id,
+          total_progress,
+          last_activity,
+          status
+        `)
+        .in('goal_id', challengeIds)
+        .eq('status', 'active')
+
+      if (participantError) throw participantError
+
+      // Get participant profiles
+      const participantUserIds = participantData.map(p => p.user_id).filter(Boolean)
+      const { data: participantProfileData, error: participantProfileError } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', participantUserIds)
+
+      if (participantProfileError) throw participantProfileError
+
+      // Combine the data
+      const enrichedChallenges = challengeData.map(challenge => {
+        const creatorProfile = profileData.find(p => p.user_id === challenge.user_id)
+        const participants = participantData
+          .filter(p => p.goal_id === challenge.id)
+          .map(participant => ({
+            ...participant,
+            profile: participantProfileData.find(p => p.user_id === participant.user_id)
+          }))
+
+        return {
+          ...challenge,
+          creator_profile: creatorProfile,
+          goal_participants: participants
+        }
+      })
+
+      // Apply date filters
       const now = new Date().toISOString().split('T')[0]
+      let filteredChallenges = enrichedChallenges
+
       if (filter === 'active') {
-        query = query
-          .lte('challenge_start_date', now)
-          .gte('challenge_end_date', now)
+        filteredChallenges = enrichedChallenges.filter(c => 
+          (!c.challenge_start_date || c.challenge_start_date <= now) &&
+          (!c.challenge_end_date || c.challenge_end_date >= now)
+        )
       } else if (filter === 'upcoming') {
-        query = query.gt('challenge_start_date', now)
+        filteredChallenges = enrichedChallenges.filter(c => 
+          c.challenge_start_date && c.challenge_start_date > now
+        )
       } else if (filter === 'completed') {
-        query = query.lt('challenge_end_date', now)
+        filteredChallenges = enrichedChallenges.filter(c => 
+          c.challenge_end_date && c.challenge_end_date < now
+        )
       }
 
-      const { data, error } = await query.limit(20)
-
-      if (error) throw error
-
-      setChallenges(data || [])
+      setChallenges(filteredChallenges)
     } catch (error) {
       console.error('Error fetching public challenges:', error)
       setError(error.message)
@@ -100,11 +142,11 @@ const PublicChallengeFeed = () => {
 
   const getChallengeStatus = (challenge) => {
     const now = new Date()
-    const startDate = new Date(challenge.challenge_start_date)
-    const endDate = new Date(challenge.challenge_end_date)
+    const startDate = challenge.challenge_start_date ? new Date(challenge.challenge_start_date) : null
+    const endDate = challenge.challenge_end_date ? new Date(challenge.challenge_end_date) : null
 
-    if (now < startDate) return 'upcoming'
-    if (now > endDate) return 'completed'
+    if (startDate && now < startDate) return 'upcoming'
+    if (endDate && now > endDate) return 'completed'
     return 'active'
   }
 
@@ -227,7 +269,7 @@ const PublicChallengeFeed = () => {
                         <div className="flex items-center space-x-1 mt-1">
                           <span className="text-sm text-gray-500">by</span>
                           <span className="text-sm font-medium text-gray-700">
-                            {challenge.user_id?.display_name || 'Anonymous'}
+                            {challenge.creator_profile?.display_name || 'Anonymous'}
                           </span>
                         </div>
                       </div>
@@ -301,12 +343,12 @@ const PublicChallengeFeed = () => {
                       <h4 className="text-sm font-semibold text-gray-700 mb-2">Top Participants</h4>
                       <div className="flex items-center space-x-3">
                         {topParticipants.map((participant, index) => (
-                          <div key={participant.id} className="flex items-center space-x-2">
+                          <div key={participant.user_id} className="flex items-center space-x-2">
                             <div className="relative">
-                              {participant.user_id?.avatar_url ? (
+                              {participant.profile?.avatar_url ? (
                                 <img
-                                  src={participant.user_id.avatar_url}
-                                  alt={participant.user_id.display_name}
+                                  src={participant.profile.avatar_url}
+                                  alt={participant.profile.display_name}
                                   className="w-8 h-8 rounded-full object-cover border-2 border-white"
                                 />
                               ) : (
@@ -322,7 +364,7 @@ const PublicChallengeFeed = () => {
                             </div>
                             <div className="text-xs">
                               <div className="font-medium text-gray-700">
-                                {participant.user_id?.display_name || 'Anonymous'}
+                                {participant.profile?.display_name || 'Anonymous'}
                               </div>
                               <div className="text-gray-500">
                                 {participant.total_progress || 0} {challenge.target_unit || 'done'}
