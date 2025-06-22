@@ -18,9 +18,9 @@ const Home = () => {
     let q = supabase
       .from('goals')
       .select('*')
-      .eq('is_public', true)
+      .eq('privacy_level', 'public_challenge')
       .order('created_at', { ascending: false })
-    if (search) q = q.ilike('title', '%' + search + '%')
+    if (search) q = q.ilike('name', '%' + search + '%')
     const { data, error } = await q
     if (error) console.error('Error fetching public goals:', error)
     setGoals(data || [])
