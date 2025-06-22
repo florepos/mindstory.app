@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { X, BarChart3, Share2, Download, Calendar, Camera, CheckCircle, XCircle, Clock, TrendingUp } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
+import { formatDate } from '../utils/date'
 
 const GoalFeed = ({ goal, isOpen, onClose }) => {
   const [entries, setEntries] = useState([])
@@ -77,22 +78,6 @@ const GoalFeed = ({ goal, isOpen, onClose }) => {
     }
   }
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = Math.abs(now - date)
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 1) return 'Today'
-    if (diffDays === 2) return 'Yesterday'
-    if (diffDays <= 7) return `${diffDays - 1} days ago`
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-    })
-  }
 
   const getWeekNumber = (date) => {
     const d = new Date(date)

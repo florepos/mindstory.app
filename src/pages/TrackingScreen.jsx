@@ -5,6 +5,7 @@ import { useDrag } from '@use-gesture/react'
 import { supabase } from '../services/supabaseClient'
 import CreateGoalModal from '../components/CreateGoalModal'
 import UnifiedTrackingButton from '../components/UnifiedTrackingButton'
+import { formatDate } from '../utils/date'
 
 const TrackingScreen = ({ onBack }) => {
   const [selectedGoalIndex, setSelectedGoalIndex] = useState(0)
@@ -483,22 +484,6 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = Math.abs(now - date)
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 1) return t.today
-    if (diffDays === 2) return t.yesterday
-    if (diffDays <= 7) return `${diffDays - 1} ${t.daysAgo}`
-    
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-    })
-  }
 
   // WhatsApp sharing with image generation
   const generateShareImage = async (entry) => {
@@ -536,7 +521,11 @@ const TrackingScreen = ({ onBack }) => {
 
     // Add date
     ctx.font = '28px Arial'
-    const date = formatDate(entry.completed_at)
+    const date = formatDate(entry.completed_at, {
+      today: t.today,
+      yesterday: t.yesterday,
+      daysAgo: t.daysAgo,
+    })
     ctx.fillText(date, 400, 370)
 
     // Add MindStory branding
@@ -549,7 +538,11 @@ const TrackingScreen = ({ onBack }) => {
 
   const shareToWhatsApp = async (entry) => {
     try {
-      const shareText = `🎯 ${entry.goals?.name || 'Goal'}\n${getStatusText(entry.status)} on ${formatDate(entry.completed_at)}\n\n#MindStory #Goals #Progress`
+      const shareText = `🎯 ${entry.goals?.name || 'Goal'}\n${getStatusText(entry.status)} on ${formatDate(entry.completed_at, {
+        today: t.today,
+        yesterday: t.yesterday,
+        daysAgo: t.daysAgo,
+      })}\n\n#MindStory #Goals #Progress`
       
       // Generate image
       const imageDataUrl = await generateShareImage(entry)
@@ -802,7 +795,7 @@ const TrackingScreen = ({ onBack }) => {
       <div 
         {...feedDragHandler()}
         ref={feedRef}
-        className="relative z-10 bg-white/60 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl shadow-premium-xl min-h-screen pt-8 px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32"
+        className="relative z-10 bg-white/60 backdrop-blur-xl rounded-t-2xl sm:rounded-t-3xl shadow-premium-xl min-h-screen pt-12 sm:pt-16 px-4 sm:px-6 lg:px-8 pb-24 sm:pb-32"
         style={{ touchAction: 'pan-y' }}
       >
         <div className="max-w-4xl mx-auto">
@@ -882,7 +875,11 @@ const TrackingScreen = ({ onBack }) => {
                       <div className="text-2xl sm:text-3xl">{entry.goals?.symbol || '🎯'}</div>
                       <div>
                         <h4 className="font-bold text-lg sm:text-xl text-gray-800">{entry.goals?.name}</h4>
-                        <p className="text-sm sm:text-base text-gray-600">{formatDate(entry.completed_at)}</p>
+                        <p className="text-sm sm:text-base text-gray-600">{formatDate(entry.completed_at, {
+                          today: t.today,
+                          yesterday: t.yesterday,
+                          daysAgo: t.daysAgo,
+                        })}</p>
                       </div>
                     </div>
                     
