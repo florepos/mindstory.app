@@ -456,7 +456,7 @@ const UnifiedTrackingButton = ({
             <div className="flex items-center justify-center space-x-4 text-xs text-gray-600">
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-success-400 rounded-full"></div>
-                <span>Right: Done</span>
+                <span>Right: Done + Comment</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="w-2 h-2 bg-primary-400 rounded-full"></div>
