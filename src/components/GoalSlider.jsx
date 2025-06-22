@@ -80,11 +80,12 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
     setShowCreateModal(false)
   }
 
+  // Updated to 2 seconds as requested
   const handleLongPress = (goal) => {
     const timer = setTimeout(() => {
       setEditingGoal(goal)
       setShowEditModal(true)
-    }, 800) // 800ms long press
+    }, 2000) // Changed from 800ms to 2000ms (2 seconds)
     setLongPressTimer(timer)
   }
 
@@ -125,6 +126,7 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
         return null
     }
   }
+  
   if (loading) {
     return (
       <div className="premium-card p-12 mb-12">
@@ -205,7 +207,7 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
 
           <div 
             id="goals-container"
-            className="flex space-x-8 overflow-x-auto scrollbar-hide pb-6"
+            className="flex space-x-4 overflow-x-auto scrollbar-hide pb-6" // Changed from space-x-8 to space-x-4 (-16px)
           >
             {goals.map((goal) => {
               const isSelected = selectedGoalId === goal.id
@@ -226,6 +228,16 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
                   }`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  
+                  {/* Friends Goal Indicator */}
+                  {goal.goal_type === 'friends' && (
+                    <div className="absolute top-4 right-4 z-20">
+                      <div className="p-2 bg-white/20 backdrop-blur-sm rounded-full">
+                        {getGoalTypeIcon(goal.goal_type)}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="relative z-10 p-10">
                     <div className="text-center mb-8">
                       <div className={`text-6xl mb-6 transition-all duration-500 ${

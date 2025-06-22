@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Camera, Check, X, Share2, Edit3, Trash2, Calendar, Target, TrendingUp, Award, Heart, Sparkles, ArrowLeft, Filter, MessageCircle, Upload, Brain, User } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Camera, Check, X, Share2, Edit3, Trash2, Calendar, Target, TrendingUp, Award, Heart, Sparkles, ArrowLeft, Filter, MessageCircle, Upload, Brain, User, Users, Menu } from 'lucide-react'
 import { useSpring, animated, config } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 import { supabase } from '../services/supabaseClient'
@@ -28,6 +28,7 @@ const TrackingScreen = ({ onBack }) => {
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
   const [filterMode, setFilterMode] = useState('current') // 'current' or 'all'
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [showBurgerMenu, setShowBurgerMenu] = useState(false)
   const goalScrollRef = useRef(null)
   const feedRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -214,12 +215,12 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  // Long press handlers
+  // Long press handlers - Updated to 2 seconds as requested
   const handleGoalPress = (index) => {
     const timer = setTimeout(() => {
       setSelectedGoalIndex(index)
       setShowGoalModal(true)
-    }, 500)
+    }, 2000) // Changed from 500ms to 2000ms (2 seconds)
     setLongPressTimer(timer)
   }
 
@@ -230,27 +231,46 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  // Photo upload
+  // Photo upload with enhanced error handling and debugging
   const uploadPhoto = async (file) => {
     try {
       setUploadingPhoto(true)
+      console.log('Starting photo upload:', file.name, file.size, file.type)
+      
+      // Validate file
+      if (!file.type.startsWith('image/')) {
+        throw new Error('Selected file is not an image')
+      }
+      
+      if (file.size > 10 * 1024 * 1024) { // 10MB limit
+        throw new Error('Image file is too large (max 10MB)')
+      }
       
       const fileExt = file.name.split('.').pop()
       const fileName = `${selectedGoal.id}_${Date.now()}.${fileExt}`
       const filePath = `goal-photos/${fileName}`
 
+      console.log('Uploading to path:', filePath)
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('goal-photos')
-        .upload(filePath, file)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        })
 
       if (uploadError) {
+        console.error('Upload error:', uploadError)
         throw uploadError
       }
+
+      console.log('Upload successful:', uploadData)
 
       const { data: urlData } = supabase.storage
         .from('goal-photos')
         .getPublicUrl(filePath)
 
+      console.log('Public URL generated:', urlData.publicUrl)
       return urlData.publicUrl
     } catch (error) {
       console.error('Error uploading photo:', error)
@@ -263,6 +283,7 @@ const TrackingScreen = ({ onBack }) => {
   const uploadPhotoWithOverlay = async (file, text) => {
     try {
       setUploadingPhoto(true)
+      console.log('Starting photo upload with overlay:', file.name, text)
 
       const imageUrl = URL.createObjectURL(file)
       const img = await new Promise((resolve, reject) => {
@@ -300,16 +321,25 @@ const TrackingScreen = ({ onBack }) => {
       const fileName = `${selectedGoal.id}_${Date.now()}.jpg`
       const filePath = `goal-photos/${fileName}`
 
+      console.log('Uploading processed image to:', filePath)
+
       const { error: uploadError } = await supabase.storage
         .from('goal-photos')
-        .upload(filePath, blob)
+        .upload(filePath, blob, {
+          cacheControl: '3600',
+          upsert: false
+        })
 
-      if (uploadError) throw uploadError
+      if (uploadError) {
+        console.error('Upload error:', uploadError)
+        throw uploadError
+      }
 
       const { data: urlData } = supabase.storage
         .from('goal-photos')
         .getPublicUrl(filePath)
 
+      console.log('Processed photo uploaded successfully:', urlData.publicUrl)
       return urlData.publicUrl
     } catch (error) {
       console.error('Error uploading photo with overlay:', error)
@@ -323,6 +353,8 @@ const TrackingScreen = ({ onBack }) => {
     const file = event.target.files?.[0]
     if (!file || !selectedGoal) return
 
+    console.log('File selected:', file.name, file.type, file.size)
+
     setSelectedPhotoFile(file)
     setPhotoPreviewUrl(URL.createObjectURL(file))
     setPendingEntry({ status: 'done_with_photo' })
@@ -335,6 +367,7 @@ const TrackingScreen = ({ onBack }) => {
     if (!entry || !selectedGoal) return
 
     try {
+      console.log('Saving entry:', entry)
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       
       if (userError || !user) {
@@ -344,7 +377,9 @@ const TrackingScreen = ({ onBack }) => {
       let photoUrl = entry.photo_url
 
       if (entry.status === 'done_with_photo' && selectedPhotoFile) {
+        console.log('Processing photo upload...')
         photoUrl = await uploadPhotoWithOverlay(selectedPhotoFile, comment)
+        console.log('Photo uploaded successfully:', photoUrl)
       }
 
       const entryData = {
@@ -362,14 +397,19 @@ const TrackingScreen = ({ onBack }) => {
         entryData.comment = comment.trim()
       }
 
+      console.log('Inserting entry data:', entryData)
+
       const { data, error } = await supabase
         .from('goal_entries')
         .insert([entryData])
         .select()
 
       if (error) {
+        console.error('Database insert error:', error)
         throw error
       }
+
+      console.log('Entry saved successfully:', data)
 
       // Reset states
       setPendingEntry(null)
@@ -390,12 +430,16 @@ const TrackingScreen = ({ onBack }) => {
 
     } catch (error) {
       console.error('Error saving entry:', error)
+      // Show error to user
+      alert(`Error saving entry: ${error.message}`)
     }
   }
 
   // Handle unified tracking button actions
   const handleTrackingAction = async (action, needsComment = false) => {
     if (!selectedGoal) return
+
+    console.log('Tracking action:', action, 'needsComment:', needsComment)
 
     if (action === 'done_with_photo') {
       fileInputRef.current?.click()
@@ -412,7 +456,18 @@ const TrackingScreen = ({ onBack }) => {
 
   // Handle photo capture from unified button
   const handlePhotoCapture = () => {
+    console.log('Photo capture triggered')
     fileInputRef.current?.click()
+  }
+
+  // Burger menu handlers
+  const toggleBurgerMenu = () => {
+    setShowBurgerMenu(prev => !prev)
+  }
+
+  const handleMenuItemClick = (action) => {
+    setShowBurgerMenu(false)
+    if (action) action()
   }
 
   // Feed swipe handler for sharing
@@ -483,7 +538,6 @@ const TrackingScreen = ({ onBack }) => {
         return null
     }
   }
-
 
   // WhatsApp sharing with image generation
   const generateShareImage = async (entry) => {
@@ -582,6 +636,15 @@ const TrackingScreen = ({ onBack }) => {
     fetchEntries()
   }
 
+  const getGoalTypeIcon = (goalType) => {
+    switch (goalType) {
+      case 'friends':
+        return <Users className="w-3 h-3 text-blue-500" />
+      default:
+        return null
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 via-rose-50/30 to-yellow-50/50 flex items-center justify-center">
@@ -602,9 +665,9 @@ const TrackingScreen = ({ onBack }) => {
         <div className="absolute bottom-40 left-1/4 w-24 sm:w-40 h-24 sm:h-40 bg-gradient-to-br from-rose-200/20 to-yellow-200/20 rounded-full blur-2xl floating-element" style={{ animationDelay: '4s' }}></div>
       </div>
 
-      {/* Header - Matching homescreen design */}
+      {/* Header - Matching homescreen design exactly */}
       <header className="glass-card sticky top-0 z-50 border-b-0 rounded-none backdrop-blur-3xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20">
             <div className="flex items-center space-x-2 sm:space-x-4">
               {onBack && (
@@ -623,33 +686,62 @@ const TrackingScreen = ({ onBack }) => {
               </div>
               <div>
                 <h1 className="text-lg sm:text-3xl font-bold gradient-text-premium">
-                  {t.trackProgress}
+                  MindStory
                 </h1>
-                <p className="text-xs text-gray-600 font-medium hidden sm:block">{t.yourDailyJourney}</p>
+                <p className="text-xs text-gray-600 font-medium hidden sm:block">Transform your dreams into reality</p>
               </div>
             </div>
             
-            <div className="flex items-center space-x-2 sm:space-x-4">
-              <div className="glass-card rounded-full px-2 sm:px-4 py-1 sm:py-2 shimmer">
-                <div className="flex items-center space-x-1 sm:space-x-2">
-                  <Heart className="w-3 sm:w-4 h-3 sm:h-4 text-rose-500 animate-pulse-soft" />
-                  <span className="text-xs font-bold text-gray-700">Day 24</span>
-                </div>
-              </div>
-              
-              {userProfile?.avatar_url && (
-                <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-white shadow-premium">
-                  <img
-                    src={userProfile.avatar_url}
-                    alt={userProfile.display_name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-            </div>
+            {/* Burger Menu Button */}
+            <button
+              onClick={toggleBurgerMenu}
+              className="p-2 sm:p-3 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-xl sm:rounded-2xl"
+            >
+              <Menu className="w-5 sm:w-6 h-5 sm:h-6 text-gray-600" />
+            </button>
           </div>
         </div>
+
+        {/* Burger Menu Dropdown */}
+        {showBurgerMenu && (
+          <div className="absolute top-full right-3 sm:right-6 lg:right-8 mt-2 w-64 premium-card p-4 z-50 animate-scale-in">
+            <div className="space-y-2">
+              {userProfile?.avatar_url && (
+                <div className="flex items-center space-x-3 p-3 border-b border-gray-200 mb-4">
+                  <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-white shadow-premium">
+                    <img
+                      src={userProfile.avatar_url}
+                      alt={userProfile.display_name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-800">{userProfile.display_name}</p>
+                    <p className="text-sm text-gray-600">Day 24 streak!</p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex items-center space-x-2 sm:space-x-4 mb-4">
+                <div className="glass-card rounded-full px-2 sm:px-4 py-1 sm:py-2 shimmer">
+                  <div className="flex items-center space-x-1 sm:space-x-2">
+                    <Heart className="w-3 sm:w-4 h-3 sm:h-4 text-rose-500 animate-pulse-soft" />
+                    <span className="text-xs font-bold text-gray-700">Day 24</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </header>
+
+      {/* Click outside to close burger menu */}
+      {showBurgerMenu && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setShowBurgerMenu(false)}
+        />
+      )}
 
       {/* Hidden file input */}
       <input
@@ -660,7 +752,7 @@ const TrackingScreen = ({ onBack }) => {
         className="hidden"
       />
 
-      {/* Goal Selection - Matching homescreen patterns */}
+      {/* Goal Selection - Updated spacing to -16px (4 units) */}
       <section className="px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-6 sm:mb-8">
@@ -698,7 +790,7 @@ const TrackingScreen = ({ onBack }) => {
 
           <div 
             ref={goalScrollRef}
-            className="flex space-x-6 sm:space-x-8 overflow-x-auto scrollbar-hide pb-6"
+            className="flex space-x-4 overflow-x-auto scrollbar-hide pb-6" // Changed from space-x-6 to space-x-4 (-16px)
           >
             {goals.map((goal, index) => {
               const isSelected = selectedGoalIndex === index
@@ -719,6 +811,16 @@ const TrackingScreen = ({ onBack }) => {
                   }`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  
+                  {/* Friends Goal Indicator */}
+                  {goal.goal_type === 'friends' && (
+                    <div className="absolute top-4 right-4 z-20">
+                      <div className="p-2 bg-white/20 backdrop-blur-sm rounded-full">
+                        {getGoalTypeIcon(goal.goal_type)}
+                      </div>
+                    </div>
+                  )}
+                  
                   <div className="relative z-10 p-8 sm:p-10">
                     <div className="text-center mb-6 sm:mb-8">
                       <div className={`text-5xl sm:text-6xl mb-4 sm:mb-6 transition-all duration-500 ${
@@ -756,8 +858,8 @@ const TrackingScreen = ({ onBack }) => {
         </div>
       </section>
 
-      {/* Unified Tracking Interface */}
-      <section className="relative z-20 flex justify-center py-12 sm:py-16 lg:py-20">
+      {/* Unified Tracking Interface - Adjusted positioning to bottom-10 */}
+      <section className="relative z-20 flex justify-center py-20 sm:py-24 lg:py-28"> {/* Changed from py-12 sm:py-16 lg:py-20 */}
         <div className="text-center">
           <UnifiedTrackingButton
             onTrackingAction={handleTrackingAction}
@@ -1006,8 +1108,9 @@ const TrackingScreen = ({ onBack }) => {
                 <button
                   onClick={saveEntry}
                   className="btn-premium flex-1"
+                  disabled={uploadingPhoto}
                 >
-                  {t.save}
+                  {uploadingPhoto ? 'Saving...' : t.save}
                 </button>
               </div>
             </div>
