@@ -10,267 +10,80 @@ const UnifiedTrackingButton = ({
   className = '',
   completionCount = 0
 }) => {
-  const [isPressed, setIsPressed] = useState(false)
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [gestureDirection, setGestureDirection] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const [dragCurrent, setDragCurrent] = useState({ x: 0, y: 0 })
+  const [gestureDirection, setGestureDirection] = useState(null)
+  const [isPressed, setIsPressed] = useState(false)
   
-  const pressTimer = useRef(null)
-  const progressTimer = useRef(null)
-  const startTime = useRef(null)
   const buttonRef = useRef(null)
-
-  const EXPAND_DURATION = 1000
-  const MAX_SCALE = 1.5
-  const GESTURE_THRESHOLD = 50 // Noch niedriger für einfachere Gesten
+  const dragThreshold = 30 // Reduced threshold for easier gestures
+  const quickTapThreshold = 200 // Max time for quick tap
+  const tapStartTime = useRef(null)
 
   // Main button animation
   const [buttonSpring, buttonApi] = useSpring(() => ({
     scale: 1,
     rotate: 0,
-    borderRadius: 50,
-    shadow: 20,
     glow: 0,
-    borderWidth: 3,
     config: config.gentle
-  }))
-
-  // Progress ring animation
-  const [progressSpring, progressApi] = useSpring(() => ({
-    progress: 0,
-    opacity: 0,
-    scale: 1,
-    config: config.slow
   }))
 
   // Direction indicators animation
   const [indicatorSpring, indicatorApi] = useSpring(() => ({
-    opacity: 1,
+    opacity: 0,
     scale: 1,
     config: config.gentle
   }))
 
-  // Calculate current scale based on progress
-  const getCurrentScale = useCallback((currentProgress) => {
-    return 1 + (MAX_SCALE - 1) * (currentProgress / 100)
-  }, [])
-
-  // Start long press
-  const handlePressStart = useCallback(() => {
+  // Start drag immediately on touch/mouse down
+  const handleDragStart = useCallback((e) => {
     if (disabled || !selectedGoal) return
 
-    console.log('🚀 Press start triggered')
-    setIsPressed(true)
-    startTime.current = Date.now()
+    console.log('🚀 IMMEDIATE drag start - no expansion needed!')
     
-    // Haptic feedback if available
-    if (navigator.vibrate) {
-      navigator.vibrate(50)
-    }
-    
-    // Start visual feedback
-    buttonApi.start({
-      scale: 1.05,
-      shadow: 30,
-      glow: 0.3,
-      borderWidth: 4
-    })
-
-    progressApi.start({
-      opacity: 1,
-      scale: 1.1
-    })
-
-    // Progress tracking
-    const updateProgress = () => {
-      if (!startTime.current) return
-
-      const elapsed = Date.now() - startTime.current
-      const currentProgress = Math.min((elapsed / EXPAND_DURATION) * 100, 100)
-      
-      setProgress(currentProgress)
-      
-      // Update button scale and border radius
-      const currentScale = getCurrentScale(currentProgress)
-      const borderRadius = 50 - (currentProgress * 0.3)
-      
-      buttonApi.start({
-        scale: currentScale,
-        rotate: currentProgress * 3.6,
-        borderRadius: borderRadius,
-        shadow: 20 + (currentProgress * 0.8),
-        glow: 0.3 + (currentProgress * 0.007),
-        borderWidth: 3 + (currentProgress * 0.05)
-      })
-
-      progressApi.start({
-        progress: currentProgress
-      })
-
-      if (currentProgress < 100) {
-        progressTimer.current = requestAnimationFrame(updateProgress)
-      } else {
-        handleExpansionComplete()
-      }
-    }
-
-    progressTimer.current = requestAnimationFrame(updateProgress)
-
-    // Fallback timer
-    pressTimer.current = setTimeout(() => {
-      handleExpansionComplete()
-    }, EXPAND_DURATION)
-  }, [disabled, selectedGoal, buttonApi, progressApi, getCurrentScale])
-
-  // Handle expansion completion
-  const handleExpansionComplete = useCallback(() => {
-    console.log('✨ Expansion complete - enabling drag')
-    setIsExpanded(true)
-    setProgress(100)
-    
-    // Enhanced haptic feedback for expansion complete
-    if (navigator.vibrate) {
-      navigator.vibrate([100, 50, 100])
-    }
-    
-    // Enhanced visual feedback for expansion completion
-    buttonApi.start({
-      scale: MAX_SCALE,
-      borderRadius: 35,
-      shadow: 60,
-      glow: 1,
-      borderWidth: 6
-    })
-  }, [buttonApi])
-
-  // End press/reset
-  const handlePressEnd = useCallback(() => {
-    console.log('🛑 Press end triggered')
-    setIsPressed(false)
-    setIsExpanded(false)
-    setProgress(0)
-    setGestureDirection(null)
-    setIsDragging(false)
-    setDragStart({ x: 0, y: 0 })
-    setDragCurrent({ x: 0, y: 0 })
-    startTime.current = null
-
-    // Clear timers
-    if (pressTimer.current) {
-      clearTimeout(pressTimer.current)
-      pressTimer.current = null
-    }
-    if (progressTimer.current) {
-      cancelAnimationFrame(progressTimer.current)
-      progressTimer.current = null
-    }
-
-    // Reset animations
-    buttonApi.start({
-      scale: 1,
-      rotate: 0,
-      borderRadius: 50,
-      shadow: 20,
-      glow: 0,
-      borderWidth: 3
-    })
-
-    progressApi.start({
-      progress: 0,
-      opacity: 0,
-      scale: 1
-    })
-
-    indicatorApi.start({
-      opacity: 1,
-      scale: 1
-    })
-  }, [buttonApi, progressApi, indicatorApi])
-
-  // Execute gesture action
-  const executeGestureAction = useCallback((direction) => {
-    if (!onTrackingAction) {
-      console.error('❌ onTrackingAction callback not provided')
-      return
-    }
-
-    console.log('🎯 Executing action for direction:', direction)
-    let action = 'done'
-    let needsComment = false
-
-    // Haptic feedback for action
-    if (navigator.vibrate) {
-      navigator.vibrate(200)
-    }
-
-    switch (direction) {
-      case 'right':
-        action = 'done'
-        needsComment = true
-        console.log('➡️ Right swipe: Done with comment')
-        break
-      case 'left':
-        action = 'not_done'
-        console.log('⬅️ Left swipe: Not done')
-        break
-      case 'up':
-        if (onPhotoCapture) {
-          console.log('📸 Up swipe: Triggering photo capture')
-          onPhotoCapture()
-          handlePressEnd()
-          return
-        }
-        action = 'done_with_photo'
-        console.log('📸 Up swipe: Done with photo')
-        break
-      default:
-        action = 'done'
-        needsComment = true
-        console.log('🎯 Default action: Done with comment')
-        break
-    }
-
-    // Success animation with callback
-    buttonApi.start({
-      scale: MAX_SCALE * 1.3,
-      rotate: 720,
-      glow: 2.5,
-      onRest: () => {
-        console.log('🚀 Calling onTrackingAction with:', action, needsComment)
-        onTrackingAction(action, needsComment)
-        setTimeout(handlePressEnd, 300)
-      }
-    })
-  }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
-
-  // KOMPLETT NEUES DRAG-SYSTEM - Ohne @use-gesture/react
-  const handleDragStart = useCallback((e) => {
-    if (!isExpanded) return
-
-    console.log('🎬 Manual drag start')
-    setIsDragging(true)
-    setGestureDirection(null)
+    // Prevent default behaviors
+    e.preventDefault()
+    e.stopPropagation()
 
     const point = e.touches ? 
       { x: e.touches[0].clientX, y: e.touches[0].clientY } :
       { x: e.clientX, y: e.clientY }
 
+    setIsDragging(true)
+    setIsPressed(true)
     setDragStart(point)
     setDragCurrent(point)
+    setGestureDirection(null)
+    tapStartTime.current = Date.now()
+    
+    // Immediate visual feedback
+    buttonApi.start({
+      scale: 1.1,
+      glow: 0.5
+    })
+
+    // Show direction indicators immediately
+    indicatorApi.start({
+      opacity: 1,
+      scale: 1.1
+    })
+
+    // Haptic feedback
+    if (navigator.vibrate) {
+      navigator.vibrate(50)
+    }
+
+    console.log('✅ Drag started at:', point)
+  }, [disabled, selectedGoal, buttonApi, indicatorApi])
+
+  const handleDragMove = useCallback((e) => {
+    if (!isDragging) return
 
     // Prevent default behaviors
     e.preventDefault()
     e.stopPropagation()
-  }, [isExpanded])
 
-  const handleDragMove = useCallback((e) => {
-    if (!isDragging || !isExpanded) return
-
-    console.log('👆 Manual drag move')
-    
     const point = e.touches ? 
       { x: e.touches[0].clientX, y: e.touches[0].clientY } :
       { x: e.clientX, y: e.clientY }
@@ -281,9 +94,10 @@ const UnifiedTrackingButton = ({
     const deltaY = point.y - dragStart.y
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
-    console.log('📍 Drag delta:', { deltaX: Math.round(deltaX), deltaY: Math.round(deltaY), distance: Math.round(distance) })
+    console.log('👆 Drag move:', { deltaX: Math.round(deltaX), deltaY: Math.round(deltaY), distance: Math.round(distance) })
 
-    if (distance > 20) {
+    // Determine direction as soon as we have some movement
+    if (distance > 15) {
       let direction = null
       const absX = Math.abs(deltaX)
       const absY = Math.abs(deltaY)
@@ -294,166 +108,153 @@ const UnifiedTrackingButton = ({
         direction = deltaX > 0 ? 'right' : 'left'
       }
       
-      console.log('📍 Direction detected:', direction)
-      setGestureDirection(direction)
-      
-      // Visual feedback during gesture
-      if (distance > GESTURE_THRESHOLD * 0.5) {
+      if (direction !== 'down') { // Ignore downward gestures
+        console.log('📍 Direction detected:', direction)
+        setGestureDirection(direction)
+        
+        // Enhanced visual feedback for direction
         buttonApi.start({
-          scale: MAX_SCALE * 1.15,
-          glow: 1.8
+          scale: 1.2,
+          glow: 1.0,
+          rotate: direction === 'right' ? 10 : direction === 'left' ? -10 : 0
         })
       }
     }
+  }, [isDragging, dragStart, buttonApi])
 
+  const handleDragEnd = useCallback((e) => {
+    if (!isDragging) return
+
+    console.log('🏁 Drag end')
+    
     // Prevent default behaviors
     e.preventDefault()
     e.stopPropagation()
-  }, [isDragging, isExpanded, dragStart, buttonApi])
-
-  const handleDragEnd = useCallback((e) => {
-    if (!isDragging || !isExpanded) return
-
-    console.log('🏁 Manual drag end')
-    setIsDragging(false)
 
     const deltaX = dragCurrent.x - dragStart.x
     const deltaY = dragCurrent.y - dragStart.y
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+    const tapDuration = Date.now() - (tapStartTime.current || 0)
 
-    console.log('📊 Final drag stats:', { 
+    console.log('📊 Final gesture:', { 
       distance: Math.round(distance), 
-      threshold: GESTURE_THRESHOLD,
-      direction: gestureDirection
+      threshold: dragThreshold,
+      direction: gestureDirection,
+      tapDuration
     })
-    
-    if (distance > GESTURE_THRESHOLD) {
+
+    // Check if it's a quick tap (for default action)
+    if (distance < dragThreshold && tapDuration < quickTapThreshold) {
+      console.log('⚡ Quick tap detected - executing default action')
+      executeAction('done', true) // Default to done with comment
+    } else if (distance >= dragThreshold && gestureDirection && gestureDirection !== 'down') {
       console.log('✅ Gesture threshold met, executing action for direction:', gestureDirection)
-      if (gestureDirection && gestureDirection !== 'down') {
-        executeGestureAction(gestureDirection)
-      } else {
-        console.log('❌ Invalid direction or downward gesture, resetting')
-        handlePressEnd()
+      executeAction(gestureDirection)
+    } else {
+      console.log('❌ Gesture not recognized, resetting')
+      resetButton()
+    }
+  }, [isDragging, dragCurrent, dragStart, gestureDirection])
+
+  // Execute the appropriate action based on gesture
+  const executeAction = useCallback((directionOrAction, needsComment = false) => {
+    if (!onTrackingAction) {
+      console.error('❌ onTrackingAction callback not provided')
+      resetButton()
+      return
+    }
+
+    let action = 'done'
+    let requiresComment = needsComment
+
+    // Map direction to action
+    if (typeof directionOrAction === 'string') {
+      switch (directionOrAction) {
+        case 'right':
+          action = 'done'
+          requiresComment = true
+          console.log('➡️ Right swipe: Done with comment')
+          break
+        case 'left':
+          action = 'not_done'
+          console.log('⬅️ Left swipe: Not done')
+          break
+        case 'up':
+          if (onPhotoCapture) {
+            console.log('📸 Up swipe: Triggering photo capture')
+            onPhotoCapture()
+            resetButton()
+            return
+          }
+          action = 'done_with_photo'
+          console.log('📸 Up swipe: Done with photo')
+          break
+        case 'done':
+          action = 'done'
+          console.log('🎯 Quick tap: Done with comment')
+          break
+        default:
+          action = 'done'
+          requiresComment = true
+          console.log('🎯 Default action: Done with comment')
+          break
       }
-    } else {
-      console.log('❌ Gesture threshold not met, resetting')
-      handlePressEnd()
     }
 
-    // Prevent default behaviors
-    e.preventDefault()
-    e.stopPropagation()
-  }, [isDragging, isExpanded, dragCurrent, dragStart, gestureDirection, executeGestureAction, handlePressEnd])
+    // Success animation
+    buttonApi.start({
+      scale: 1.4,
+      rotate: 360,
+      glow: 2.0,
+      onRest: () => {
+        console.log('🚀 Calling onTrackingAction with:', action, requiresComment)
+        onTrackingAction(action, requiresComment)
+        setTimeout(resetButton, 300)
+      }
+    })
 
-  // Handle click for quick actions when not expanded
-  const handleClick = useCallback((e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    console.log('🖱️ Click triggered, isExpanded:', isExpanded, 'isPressed:', isPressed)
+    // Enhanced haptic feedback for action
+    if (navigator.vibrate) {
+      navigator.vibrate([100, 50, 100])
+    }
+  }, [onTrackingAction, onPhotoCapture, buttonApi])
+
+  // Reset button to initial state
+  const resetButton = useCallback(() => {
+    console.log('🔄 Resetting button state')
     
-    if (!isExpanded && !isPressed && selectedGoal && onTrackingAction) {
-      console.log('⚡ Quick action triggered')
-      onTrackingAction('done', true)
-    }
-  }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
+    setIsDragging(false)
+    setIsPressed(false)
+    setGestureDirection(null)
+    setDragStart({ x: 0, y: 0 })
+    setDragCurrent({ x: 0, y: 0 })
+    tapStartTime.current = null
 
-  // Enhanced event handlers - VEREINFACHT
-  const handlePointerDown = useCallback((e) => {
-    console.log('👇 Pointer down - type:', e.pointerType, 'expanded:', isExpanded)
-    
-    if (!isExpanded) {
-      handlePressStart()
-    } else {
-      handleDragStart(e)
-    }
-  }, [isExpanded, handlePressStart, handleDragStart])
+    // Reset animations
+    buttonApi.start({
+      scale: 1,
+      rotate: 0,
+      glow: 0
+    })
 
-  const handlePointerMove = useCallback((e) => {
-    if (isExpanded && isDragging) {
-      handleDragMove(e)
-    }
-  }, [isExpanded, isDragging, handleDragMove])
+    indicatorApi.start({
+      opacity: 0,
+      scale: 1
+    })
+  }, [buttonApi, indicatorApi])
 
-  const handlePointerUp = useCallback((e) => {
-    console.log('👆 Pointer up - expanded:', isExpanded, 'dragging:', isDragging)
-    
-    if (isExpanded && isDragging) {
-      handleDragEnd(e)
-    } else if (!isExpanded) {
-      handlePressEnd()
-    }
-  }, [isExpanded, isDragging, handleDragEnd, handlePressEnd])
-
-  // Touch event handlers
-  const handleTouchStart = useCallback((e) => {
-    console.log('📱 Touch start - expanded:', isExpanded)
-    
-    if (!isExpanded) {
-      handlePressStart()
-    } else {
-      handleDragStart(e)
-    }
-  }, [isExpanded, handlePressStart, handleDragStart])
-
-  const handleTouchMove = useCallback((e) => {
-    if (isExpanded && isDragging) {
-      handleDragMove(e)
-    }
-  }, [isExpanded, isDragging, handleDragMove])
-
-  const handleTouchEnd = useCallback((e) => {
-    console.log('📱 Touch end - expanded:', isExpanded, 'dragging:', isDragging)
-    
-    if (isExpanded && isDragging) {
-      handleDragEnd(e)
-    } else if (!isExpanded) {
-      handlePressEnd()
-    }
-  }, [isExpanded, isDragging, handleDragEnd, handlePressEnd])
-
-  // Mouse event handlers
-  const handleMouseDown = useCallback((e) => {
-    console.log('🖱️ Mouse down - expanded:', isExpanded)
-    
-    if (!isExpanded) {
-      handlePressStart()
-    } else {
-      handleDragStart(e)
-    }
-  }, [isExpanded, handlePressStart, handleDragStart])
-
-  const handleMouseMove = useCallback((e) => {
-    if (isExpanded && isDragging) {
-      handleDragMove(e)
-    }
-  }, [isExpanded, isDragging, handleDragMove])
-
-  const handleMouseUp = useCallback((e) => {
-    console.log('🖱️ Mouse up - expanded:', isExpanded, 'dragging:', isDragging)
-    
-    if (isExpanded && isDragging) {
-      handleDragEnd(e)
-    } else if (!isExpanded) {
-      handlePressEnd()
-    }
-  }, [isExpanded, isDragging, handleDragEnd, handlePressEnd])
-
-  // Global event listeners für drag moves und ends
+  // Global event listeners for drag moves and ends
   useEffect(() => {
-    if (isExpanded && isDragging) {
+    if (isDragging) {
       const handleGlobalMove = (e) => {
-        if (e.type === 'pointermove') handlePointerMove(e)
-        else if (e.type === 'touchmove') handleTouchMove(e)
-        else if (e.type === 'mousemove') handleMouseMove(e)
+        handleDragMove(e)
       }
 
       const handleGlobalEnd = (e) => {
-        if (e.type === 'pointerup') handlePointerUp(e)
-        else if (e.type === 'touchend') handleTouchEnd(e)
-        else if (e.type === 'mouseup') handleMouseUp(e)
+        handleDragEnd(e)
       }
 
-      // Add global listeners
+      // Add global listeners with passive: false to allow preventDefault
       document.addEventListener('pointermove', handleGlobalMove, { passive: false })
       document.addEventListener('pointerup', handleGlobalEnd, { passive: false })
       document.addEventListener('touchmove', handleGlobalMove, { passive: false })
@@ -470,7 +271,7 @@ const UnifiedTrackingButton = ({
         document.removeEventListener('mouseup', handleGlobalEnd)
       }
     }
-  }, [isExpanded, isDragging, handlePointerMove, handlePointerUp, handleTouchMove, handleTouchEnd, handleMouseMove, handleMouseUp])
+  }, [isDragging, handleDragMove, handleDragEnd])
 
   const getGestureColor = (direction) => {
     switch (direction) {
@@ -492,52 +293,15 @@ const UnifiedTrackingButton = ({
 
   return (
     <div className={`relative flex flex-col items-center ${className}`} style={{ margin: '60px 0' }}>
-      {/* Progress Ring */}
+      {/* Direction Indicators - Show when dragging */}
       <animated.div
         style={{
-          opacity: progressSpring.opacity,
-          transform: progressSpring.scale.to(s => `scale(${s})`)
-        }}
-        className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
-      >
-        <svg className="w-48 h-48 sm:w-56 sm:h-56 transform -rotate-90" viewBox="0 0 200 200">
-          {/* Background ring */}
-          <circle
-            cx="100"
-            cy="100"
-            r="90"
-            stroke="currentColor"
-            strokeWidth="4"
-            fill="none"
-            className="text-gray-200/50"
-          />
-          {/* Progress ring */}
-          <animated.circle
-            cx="100"
-            cy="100"
-            r="90"
-            stroke="currentColor"
-            strokeWidth="6"
-            fill="none"
-            className="text-primary-500"
-            strokeLinecap="round"
-            strokeDasharray={`${2 * Math.PI * 90}`}
-            strokeDashoffset={progressSpring.progress.to(p => 
-              2 * Math.PI * 90 * (1 - p / 100)
-            )}
-          />
-        </svg>
-      </animated.div>
-
-      {/* Direction Indicators - Responsive positioning to stay within viewport */}
-      <animated.div
-        style={{
-          opacity: isExpanded ? indicatorSpring.opacity : 0,
+          opacity: indicatorSpring.opacity,
           transform: indicatorSpring.scale.to(s => `scale(${s})`)
         }}
         className="absolute inset-0 pointer-events-none z-20"
       >
-        {/* Up - Camera - Responsive positioning */}
+        {/* Up - Camera */}
         <div className={`absolute -top-32 sm:-top-40 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
           gestureDirection === 'up' ? 'scale-125 text-primary-500' : 'text-gray-400'
         }`}>
@@ -550,7 +314,7 @@ const UnifiedTrackingButton = ({
           </div>
         </div>
 
-        {/* Right - Comment - Responsive positioning */}
+        {/* Right - Comment */}
         <div className={`absolute top-1/2 -right-24 sm:-right-32 lg:-right-40 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'right' ? 'scale-125 text-success-500' : 'text-gray-400'
         }`}>
@@ -563,7 +327,7 @@ const UnifiedTrackingButton = ({
           </div>
         </div>
 
-        {/* Left - Not Done - Responsive positioning */}
+        {/* Left - Not Done */}
         <div className={`absolute top-1/2 -left-24 sm:-left-32 lg:-left-40 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'left' ? 'scale-125 text-error-500' : 'text-gray-400'
         }`}>
@@ -586,7 +350,7 @@ const UnifiedTrackingButton = ({
         </div>
       )}
 
-      {/* Main Button - KOMPLETT ÜBERARBEITET */}
+      {/* Main Button - SINGLE TOUCH SYSTEM */}
       <animated.button
         ref={buttonRef}
         className={`
@@ -594,19 +358,15 @@ const UnifiedTrackingButton = ({
           bg-gradient-to-br from-primary-500 via-secondary-500 to-primary-600
           flex items-center justify-center
           cursor-pointer select-none outline-none
-          transition-colors duration-300
+          transition-colors duration-300 rounded-full
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:brightness-110 active:brightness-95'}
-          ${isExpanded ? 'cursor-grab active:cursor-grabbing' : ''}
+          ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}
         `}
         style={{
           transform: buttonSpring.scale.to(s => `scale(${s}) rotate(${buttonSpring.rotate.get()}deg)`),
-          borderRadius: buttonSpring.borderRadius.to(r => `${r}%`),
-          boxShadow: buttonSpring.shadow.to(s => 
-            `0 ${s}px ${s * 2}px rgba(0, 0, 0, 0.15), 0 0 ${s * 3}px rgba(249, 115, 22, ${buttonSpring.glow.get()})`
+          boxShadow: buttonSpring.glow.to(g => 
+            `0 8px 32px rgba(0, 0, 0, 0.15), 0 0 ${32 + g * 20}px rgba(249, 115, 22, ${g})`
           ),
-          borderWidth: buttonSpring.borderWidth.to(w => `${w}px`),
-          borderColor: isPressed || isExpanded ? '#f97316' : 'transparent',
-          borderStyle: 'solid',
           touchAction: 'none',
           userSelect: 'none',
           WebkitUserSelect: 'none',
@@ -614,39 +374,29 @@ const UnifiedTrackingButton = ({
           msUserSelect: 'none'
         }}
         // Pointer Events (modern browsers)
-        onPointerDown={handlePointerDown}
+        onPointerDown={handleDragStart}
         // Touch Events (mobile)
-        onTouchStart={handleTouchStart}
+        onTouchStart={handleDragStart}
         // Mouse Events (desktop fallback)
-        onMouseDown={handleMouseDown}
-        // Click handler for quick actions
-        onClick={handleClick}
+        onMouseDown={handleDragStart}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
         tabIndex={0}
-        aria-label={isExpanded ? "Swipe to complete action" : selectedGoal ? "Hold to expand tracking options or tap to complete" : "Select a goal first"}
+        aria-label={selectedGoal ? "Tap to complete or drag for options" : "Select a goal first"}
       >
         {/* Button Content */}
         <div className="flex items-center justify-center text-white relative z-10">
-          {isExpanded ? (
-            <div className="flex items-center justify-center">
-              <div className={`transition-colors duration-300 ${getGestureColor(gestureDirection)}`}>
-                {(() => {
-                  const IconOrEmoji = getGestureIcon(gestureDirection);
-                  if (typeof IconOrEmoji === 'string') {
-                    return <span className="text-5xl sm:text-6xl">{IconOrEmoji}</span>;
-                  }
-                  return React.createElement(IconOrEmoji, { 
-                    className: "w-12 h-12 sm:w-14 sm:h-14" 
-                  });
-                })()}
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center text-5xl sm:text-6xl">
-              {selectedGoal?.symbol || '🎯'}
-            </div>
-          )}
+          <div className={`transition-colors duration-300 ${getGestureColor(gestureDirection)}`}>
+            {(() => {
+              const IconOrEmoji = getGestureIcon(gestureDirection);
+              if (typeof IconOrEmoji === 'string') {
+                return <span className="text-5xl sm:text-6xl">{IconOrEmoji}</span>;
+              }
+              return React.createElement(IconOrEmoji, { 
+                className: "w-12 h-12 sm:w-14 sm:h-14" 
+              });
+            })()}
+          </div>
         </div>
 
         {/* Ripple Effect */}
@@ -655,44 +405,40 @@ const UnifiedTrackingButton = ({
         )}
       </animated.button>
 
-      {/* Instructions - Responsive positioning */}
-      {isExpanded && (
-        <div className="absolute -bottom-32 sm:-bottom-40 left-1/2 transform -translate-x-1/2 text-center">
-          <div className="space-y-2 sm:space-y-4">
-            <p className="text-lg sm:text-xl font-bold text-gray-800">
-              Swipe to complete
-            </p>
-            <div className="hidden sm:flex items-center justify-center space-x-6 sm:space-x-8 text-sm text-gray-600">
-              <div className="flex flex-col items-center space-y-1">
-                <div className="w-3 h-3 bg-success-400 rounded-full"></div>
-                <span className="font-medium">Right: Comment</span>
-              </div>
-              <div className="flex flex-col items-center space-y-1">
-                <div className="w-3 h-3 bg-primary-400 rounded-full"></div>
-                <span className="font-medium">Up: Photo</span>
-              </div>
-              <div className="flex flex-col items-center space-y-1">
-                <div className="w-3 h-3 bg-error-400 rounded-full"></div>
-                <span className="font-medium">Left: Skip</span>
-              </div>
+      {/* Instructions */}
+      <div className="absolute -bottom-32 sm:-bottom-40 left-1/2 transform -translate-x-1/2 text-center">
+        <div className="space-y-2 sm:space-y-4">
+          <p className="text-lg sm:text-xl font-bold text-gray-800">
+            {isDragging ? 'Release to complete' : 'Tap or drag to track'}
+          </p>
+          <div className="hidden sm:flex items-center justify-center space-x-6 sm:space-x-8 text-sm text-gray-600">
+            <div className="flex flex-col items-center space-y-1">
+              <div className="w-3 h-3 bg-success-400 rounded-full"></div>
+              <span className="font-medium">Right: Comment</span>
             </div>
-            {/* Mobile-friendly simplified instructions */}
-            <div className="sm:hidden text-sm text-gray-600">
-              <p>Swipe in any direction to complete</p>
+            <div className="flex flex-col items-center space-y-1">
+              <div className="w-3 h-3 bg-primary-400 rounded-full"></div>
+              <span className="font-medium">Up: Photo</span>
+            </div>
+            <div className="flex flex-col items-center space-y-1">
+              <div className="w-3 h-3 bg-error-400 rounded-full"></div>
+              <span className="font-medium">Left: Skip</span>
             </div>
           </div>
+          {/* Mobile-friendly simplified instructions */}
+          <div className="sm:hidden text-sm text-gray-600">
+            <p>Tap to complete • Drag for options</p>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Debug Info (development only) */}
       {import.meta.env.DEV && (
         <div className="absolute -bottom-56 sm:-bottom-64 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white/80 p-3 rounded-lg border max-w-xs">
           <div className="grid grid-cols-2 gap-2">
-            <div>Pressed: {isPressed.toString()}</div>
-            <div>Expanded: {isExpanded.toString()}</div>
-            <div>Progress: {Math.round(progress)}%</div>
-            <div>Direction: {gestureDirection || 'none'}</div>
             <div>Dragging: {isDragging.toString()}</div>
+            <div>Pressed: {isPressed.toString()}</div>
+            <div>Direction: {gestureDirection || 'none'}</div>
             <div>Goal: {selectedGoal?.name || 'none'}</div>
             <div>Disabled: {disabled.toString()}</div>
             <div>Callback: {onTrackingAction ? 'present' : 'missing'}</div>
