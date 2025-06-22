@@ -317,24 +317,71 @@ const UnifiedTrackingButton = ({
     }
   }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
 
-  // Mouse/touch event handlers for long press
+  // Enhanced event handlers with better debugging
   const handlePointerDown = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('👇 Pointer down')
-    if (!isExpanded) handlePressStart()
+    console.log('👇 Pointer down - type:', e.pointerType, 'button:', e.button)
+    if (!isExpanded && e.button === 0) { // Only left mouse button or touch
+      handlePressStart()
+    }
   }, [isExpanded, handlePressStart])
 
   const handlePointerUp = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('👆 Pointer up')
-    if (!isExpanded) handlePressEnd()
+    console.log('👆 Pointer up - type:', e.pointerType)
+    if (!isExpanded) {
+      handlePressEnd()
+    }
   }, [isExpanded, handlePressEnd])
 
   const handlePointerLeave = useCallback((e) => {
-    console.log('🚪 Pointer leave')
-    if (isPressed && !isExpanded) handlePressEnd()
+    console.log('🚪 Pointer leave - type:', e.pointerType)
+    if (isPressed && !isExpanded) {
+      handlePressEnd()
+    }
+  }, [isPressed, isExpanded, handlePressEnd])
+
+  // Touch event handlers for better mobile support
+  const handleTouchStart = useCallback((e) => {
+    e.preventDefault()
+    console.log('📱 Touch start - touches:', e.touches.length)
+    if (!isExpanded && e.touches.length === 1) { // Single touch only
+      handlePressStart()
+    }
+  }, [isExpanded, handlePressStart])
+
+  const handleTouchEnd = useCallback((e) => {
+    e.preventDefault()
+    console.log('📱 Touch end - touches:', e.touches.length)
+    if (!isExpanded) {
+      handlePressEnd()
+    }
+  }, [isExpanded, handlePressEnd])
+
+  // Mouse event handlers for desktop
+  const handleMouseDown = useCallback((e) => {
+    e.preventDefault()
+    console.log('🖱️ Mouse down - button:', e.button)
+    if (!isExpanded && e.button === 0) { // Left mouse button only
+      handlePressStart()
+    }
+  }, [isExpanded, handlePressStart])
+
+  const handleMouseUp = useCallback((e) => {
+    e.preventDefault()
+    console.log('🖱️ Mouse up - button:', e.button)
+    if (!isExpanded) {
+      handlePressEnd()
+    }
+  }, [isExpanded, handlePressEnd])
+
+  const handleMouseLeave = useCallback((e) => {
+    console.log('🖱️ Mouse leave')
+    if (isPressed && !isExpanded) {
+      handlePressEnd()
+    }
   }, [isPressed, isExpanded, handlePressEnd])
 
   const getGestureColor = (direction) => {
@@ -451,7 +498,7 @@ const UnifiedTrackingButton = ({
         </div>
       )}
 
-      {/* Main Button - Larger and more prominent */}
+      {/* Main Button - Enhanced with multiple event handlers */}
       <animated.button
         {...bind()}
         className={`
@@ -474,14 +521,18 @@ const UnifiedTrackingButton = ({
           borderStyle: 'solid',
           touchAction: 'none'
         }}
+        // Pointer Events (modern browsers)
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
-        onTouchStart={handlePointerDown}
-        onTouchEnd={handlePointerUp}
-        onMouseDown={handlePointerDown}
-        onMouseUp={handlePointerUp}
-        onMouseLeave={handlePointerLeave}
+        // Touch Events (mobile)
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        // Mouse Events (desktop fallback)
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+        // Click handler for quick actions
         onClick={handleClick}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
@@ -539,6 +590,17 @@ const UnifiedTrackingButton = ({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Debug Info (remove in production) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="absolute -bottom-60 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white/80 p-2 rounded">
+          <div>Pressed: {isPressed.toString()}</div>
+          <div>Expanded: {isExpanded.toString()}</div>
+          <div>Progress: {Math.round(progress)}%</div>
+          <div>Direction: {gestureDirection || 'none'}</div>
+          <div>Goal: {selectedGoal?.name || 'none'}</div>
         </div>
       )}
     </div>
