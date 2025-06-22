@@ -17,6 +17,7 @@ const UnifiedTrackingButton = ({
   const [showInstructions, setShowInstructions] = useState(true)
   const [hasInteracted, setHasInteracted] = useState(false)
   const [scrollPosition, setScrollPosition] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
   
   const pressTimer = useRef(null)
   const progressTimer = useRef(null)
@@ -27,6 +28,16 @@ const UnifiedTrackingButton = ({
   const EXPAND_DURATION = 3000
   const MAX_SCALE = 1.5
   const GESTURE_THRESHOLD = 80
+
+  // Detect mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile('ontouchstart' in window || navigator.maxTouchPoints > 0)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   // Main button animation
   const [buttonSpring, buttonApi] = useSpring(() => ({
@@ -69,8 +80,10 @@ const UnifiedTrackingButton = ({
     }
   }, [hasInteracted])
 
-  // Enhanced scroll locking with position preservation
+  // Enhanced scroll locking with position preservation (mobile only)
   const lockScrolling = useCallback(() => {
+    if (!isMobile) return // Only lock on mobile
+    
     const currentScrollY = window.scrollY
     setScrollPosition(currentScrollY)
     
@@ -79,10 +92,12 @@ const UnifiedTrackingButton = ({
     document.body.style.width = '100%'
     document.body.style.top = `-${currentScrollY}px`
     
-    console.log('Scroll locked at position:', currentScrollY)
-  }, [])
+    console.log('Mobile scroll locked at position:', currentScrollY)
+  }, [isMobile])
 
   const unlockScrolling = useCallback(() => {
+    if (!isMobile) return // Only unlock on mobile
+    
     document.body.style.overflow = ''
     document.body.style.position = ''
     document.body.style.width = ''
@@ -91,26 +106,26 @@ const UnifiedTrackingButton = ({
     // Restore scroll position without triggering scroll events
     window.scrollTo(0, scrollPosition)
     
-    console.log('Scroll unlocked, restored to position:', scrollPosition)
-  }, [scrollPosition])
+    console.log('Mobile scroll unlocked, restored to position:', scrollPosition)
+  }, [scrollPosition, isMobile])
 
   // Calculate current scale based on progress
   const getCurrentScale = useCallback((currentProgress) => {
     return 1 + (MAX_SCALE - 1) * (currentProgress / 100)
   }, [])
 
-  // Start long press with enhanced mobile support
+  // Start long press with enhanced desktop/mobile support
   const handlePressStart = useCallback(() => {
     if (disabled || !selectedGoal) return
 
-    console.log('Press start triggered')
+    console.log('Press start triggered, isMobile:', isMobile)
     setIsPressed(true)
     setShowInstructions(false)
     setHasInteracted(true)
     startTime.current = Date.now()
     
-    // Lock scrolling immediately on mobile
-    if ('ontouchstart' in window) {
+    // Lock scrolling only on mobile
+    if (isMobile) {
       lockScrolling()
     }
     
@@ -171,7 +186,7 @@ const UnifiedTrackingButton = ({
     pressTimer.current = setTimeout(() => {
       handleExpansionComplete()
     }, EXPAND_DURATION)
-  }, [disabled, selectedGoal, buttonApi, progressApi, getCurrentScale, lockScrolling])
+  }, [disabled, selectedGoal, buttonApi, progressApi, getCurrentScale, lockScrolling, isMobile])
 
   // Handle expansion completion
   const handleExpansionComplete = useCallback(() => {
@@ -205,8 +220,8 @@ const UnifiedTrackingButton = ({
     setGestureDirection(null)
     startTime.current = null
 
-    // Always unlock scrolling when interaction ends
-    if ('ontouchstart' in window) {
+    // Unlock scrolling only on mobile
+    if (isMobile) {
       unlockScrolling()
     }
 
@@ -240,9 +255,9 @@ const UnifiedTrackingButton = ({
       opacity: 1,
       scale: 1
     })
-  }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi, unlockScrolling])
+  }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi, unlockScrolling, isMobile])
 
-  // Enhanced gesture handler with better mobile support
+  // Enhanced gesture handler with better mobile/desktop support
   const gestureHandler = useDrag(
     ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], event }) => {
       if (!isExpanded) return
@@ -351,45 +366,76 @@ const UnifiedTrackingButton = ({
     })
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
-  // Enhanced event handlers with better mobile support
+  // Enhanced event handlers with better desktop support
   const handleMouseDown = useCallback((e) => {
+    if (isMobile) return // Skip mouse events on mobile
     e.preventDefault()
-    console.log('Mouse down')
+    console.log('Desktop mouse down')
     if (!isExpanded) handlePressStart()
-  }, [isExpanded, handlePressStart])
+  }, [isExpanded, handlePressStart, isMobile])
 
   const handleMouseUp = useCallback((e) => {
+    if (isMobile) return // Skip mouse events on mobile
     e.preventDefault()
-    console.log('Mouse up')
+    console.log('Desktop mouse up')
     if (!isExpanded) handlePressEnd()
-  }, [isExpanded, handlePressEnd])
+  }, [isExpanded, handlePressEnd, isMobile])
+
+  const handleMouseLeave = useCallback((e) => {
+    if (isMobile) return // Skip mouse events on mobile
+    console.log('Desktop mouse leave')
+    if (isPressed && !isExpanded) handlePressEnd()
+  }, [isPressed, isExpanded, handlePressEnd, isMobile])
 
   const handleTouchStart = useCallback((e) => {
+    if (!isMobile) return // Skip touch events on desktop
     e.preventDefault()
-    console.log('Touch start')
+    console.log('Mobile touch start')
     if (!isExpanded) handlePressStart()
-  }, [isExpanded, handlePressStart])
+  }, [isExpanded, handlePressStart, isMobile])
 
   const handleTouchEnd = useCallback((e) => {
+    if (!isMobile) return // Skip touch events on desktop
     e.preventDefault()
-    console.log('Touch end')
+    console.log('Mobile touch end')
     if (!isExpanded) handlePressEnd()
-  }, [isExpanded, handlePressEnd])
+  }, [isExpanded, handlePressEnd, isMobile])
 
-  // Enhanced click handler with scroll prevention
+  // Enhanced click handler with proper desktop/mobile detection
   const handleClick = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('Click triggered, isExpanded:', isExpanded, 'isPressed:', isPressed)
+    console.log('Click triggered, isExpanded:', isExpanded, 'isPressed:', isPressed, 'isMobile:', isMobile)
     
+    // Only handle quick clicks when not in expanded mode and not currently pressing
     if (!isExpanded && !isPressed && selectedGoal) {
-      // Quick tap action - mark as done with comment
+      console.log('Quick action triggered')
       if (onTrackingAction) {
-        console.log('Quick action triggered')
         onTrackingAction('done', true)
       }
     }
-  }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
+  }, [isExpanded, isPressed, selectedGoal, onTrackingAction, isMobile])
+
+  // Desktop keyboard support
+  const handleKeyDown = useCallback((e) => {
+    if (disabled || !selectedGoal) return
+    
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault()
+      if (!isPressed && !isExpanded) {
+        handlePressStart()
+      }
+    }
+  }, [disabled, selectedGoal, isPressed, isExpanded, handlePressStart])
+
+  const handleKeyUp = useCallback((e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault()
+      if (isPressed && !isExpanded) {
+        handlePressEnd()
+      }
+    }
+  }, [isPressed, isExpanded, handlePressEnd])
 
   const getGestureColor = (direction) => {
     switch (direction) {
@@ -510,11 +556,15 @@ const UnifiedTrackingButton = ({
         }}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        onKeyUp={handleKeyUp}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
+        tabIndex={0}
         aria-label={isExpanded ? "Swipe to complete action" : selectedGoal ? "Hold to expand tracking options or tap to complete" : "Select a goal first"}
       >
         {/* Button Content */}
@@ -546,7 +596,7 @@ const UnifiedTrackingButton = ({
         <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-2">
             <p className="text-base font-semibold text-gray-700">
-              Swipe to complete
+              {isMobile ? 'Swipe to complete' : 'Drag to complete'}
             </p>
             <div className="flex items-center justify-center space-x-4 text-xs text-gray-600">
               <div className="flex items-center space-x-1">
@@ -571,11 +621,11 @@ const UnifiedTrackingButton = ({
         <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
           <div className="space-y-2">
             <p className="text-base font-medium text-gray-700">
-              Hold 3s or tap to track
+              {isMobile ? 'Hold 3s or tap to track' : 'Hold 3s, tap, or press Space/Enter'}
             </p>
             <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
               <div className="w-2 h-2 rounded-full bg-gray-300" />
-              <span>Long press for options • Tap for quick complete</span>
+              <span>{isMobile ? 'Long press for options • Tap for quick complete' : 'Hold/Space for options • Click for quick complete'}</span>
               <div className="w-2 h-2 rounded-full bg-gray-300" />
             </div>
           </div>
