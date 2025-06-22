@@ -23,7 +23,7 @@ const UnifiedTrackingButton = ({
 
   const EXPAND_DURATION = 3000
   const MAX_SCALE = 1.5
-  const GESTURE_THRESHOLD = 80
+  const GESTURE_THRESHOLD = 100 // Increased threshold for better detection
 
   // Main button animation
   const [buttonSpring, buttonApi] = useSpring(() => ({
@@ -187,7 +187,7 @@ const UnifiedTrackingButton = ({
     })
   }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi])
 
-  // Gesture handler for expanded state
+  // Gesture handler for expanded state with improved detection
   const gestureHandler = useDrag(
     ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], event }) => {
       if (!isExpanded) return
@@ -200,10 +200,10 @@ const UnifiedTrackingButton = ({
         event.stopPropagation()
       }
 
-      const isSwipe = Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3
+      const isSwipe = Math.abs(vx) > 0.4 || Math.abs(vy) > 0.4 // Increased velocity threshold
       const distance = Math.sqrt(mx * mx + my * my)
 
-      if (active && distance > 20) {
+      if (active && distance > 30) { // Increased minimum distance
         // Determine gesture direction with improved sensitivity
         let direction = null
         if (Math.abs(my) > Math.abs(mx)) {
@@ -212,14 +212,14 @@ const UnifiedTrackingButton = ({
           direction = mx > 0 ? 'right' : 'left'
         }
         
-        console.log('📍 Gesture direction:', direction)
+        console.log('📍 Gesture direction:', direction, 'distance:', distance)
         setGestureDirection(direction)
         
         // Visual feedback during gesture
         if (distance > GESTURE_THRESHOLD) {
           buttonApi.start({
-            scale: MAX_SCALE * 1.1,
-            glow: 1.5
+            scale: MAX_SCALE * 1.15,
+            glow: 1.8
           })
         }
       } else if (!active && (isSwipe || distance > GESTURE_THRESHOLD)) {
@@ -238,7 +238,7 @@ const UnifiedTrackingButton = ({
     },
     {
       axis: undefined,
-      threshold: 10,
+      threshold: 15, // Increased threshold
       rubberband: true,
       preventDefault: true,
       filterTaps: true
@@ -285,9 +285,9 @@ const UnifiedTrackingButton = ({
 
     // Success animation with onRest callback
     buttonApi.start({
-      scale: MAX_SCALE * 1.2,
+      scale: MAX_SCALE * 1.3,
       rotate: 720,
-      glow: 2,
+      glow: 2.5,
       onRest: () => {
         onTrackingAction(action, needsComment)
         setTimeout(handlePressEnd, 300)
@@ -295,7 +295,7 @@ const UnifiedTrackingButton = ({
     })
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
-  // Simplified event handlers with better cross-platform support
+  // Enhanced event handlers with better cross-platform support
   const handlePointerDown = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
@@ -383,7 +383,7 @@ const UnifiedTrackingButton = ({
   }
 
   return (
-    <div className={`relative flex flex-col items-center ${className}`} style={{ margin: '32px 0' }}>
+    <div className={`relative flex flex-col items-center ${className}`} style={{ margin: '64px 0' }}>
       {/* Progress Ring */}
       <animated.div
         style={{
@@ -392,7 +392,7 @@ const UnifiedTrackingButton = ({
         }}
         className="absolute inset-0 flex items-center justify-center pointer-events-none z-10"
       >
-        <svg className="w-40 h-40 sm:w-48 sm:h-48 transform -rotate-90" viewBox="0 0 200 200">
+        <svg className="w-48 h-48 sm:w-56 sm:h-56 transform -rotate-90" viewBox="0 0 200 200">
           {/* Background ring */}
           <circle
             cx="100"
@@ -421,7 +421,7 @@ const UnifiedTrackingButton = ({
         </svg>
       </animated.div>
 
-      {/* Direction Indicators - Always visible when expanded */}
+      {/* Direction Indicators - Much more spacious layout */}
       <animated.div
         style={{
           opacity: isExpanded ? indicatorSpring.opacity : 0,
@@ -429,49 +429,61 @@ const UnifiedTrackingButton = ({
         }}
         className="absolute inset-0 pointer-events-none z-20"
       >
-        {/* Up - Camera */}
-        <div className={`absolute -top-16 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
+        {/* Up - Camera - Much further up */}
+        <div className={`absolute -top-32 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
           gestureDirection === 'up' ? 'scale-125 text-primary-500' : 'text-gray-400'
         }`}>
-          <div className="p-4 bg-white/90 backdrop-blur-sm rounded-full shadow-premium">
-            <Camera className="w-6 h-6" />
+          <div className="p-6 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
+            <Camera className="w-8 h-8" />
+          </div>
+          <div className="text-center mt-3">
+            <div className="text-sm font-semibold text-gray-700">Photo</div>
+            <div className="text-xs text-gray-500">Swipe up</div>
           </div>
         </div>
 
-        {/* Right - Comment */}
-        <div className={`absolute top-1/2 -right-16 transform -translate-y-1/2 transition-all duration-300 ${
+        {/* Right - Comment - Much further right */}
+        <div className={`absolute top-1/2 -right-32 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'right' ? 'scale-125 text-success-500' : 'text-gray-400'
         }`}>
-          <div className="p-4 bg-white/90 backdrop-blur-sm rounded-full shadow-premium">
-            <MessageCircle className="w-6 h-6" />
+          <div className="p-6 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
+            <MessageCircle className="w-8 h-8" />
+          </div>
+          <div className="text-center mt-3">
+            <div className="text-sm font-semibold text-gray-700">Comment</div>
+            <div className="text-xs text-gray-500">Swipe right</div>
           </div>
         </div>
 
-        {/* Left - Not Done */}
-        <div className={`absolute top-1/2 -left-16 transform -translate-y-1/2 transition-all duration-300 ${
+        {/* Left - Not Done - Much further left */}
+        <div className={`absolute top-1/2 -left-32 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'left' ? 'scale-125 text-error-500' : 'text-gray-400'
         }`}>
-          <div className="p-4 bg-white/90 backdrop-blur-sm rounded-full shadow-premium">
-            <X className="w-6 h-6" />
+          <div className="p-6 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
+            <X className="w-8 h-8" />
+          </div>
+          <div className="text-center mt-3">
+            <div className="text-sm font-semibold text-gray-700">Skip</div>
+            <div className="text-xs text-gray-500">Swipe left</div>
           </div>
         </div>
       </animated.div>
 
       {/* Completion Count Badge */}
       {completionCount > 0 && (
-        <div className="absolute -top-4 -right-4 z-30">
-          <div className="bg-gradient-to-r from-success-500 to-success-600 text-white text-sm font-bold px-3 py-1 rounded-full shadow-premium animate-pulse-soft">
+        <div className="absolute -top-6 -right-6 z-30">
+          <div className="bg-gradient-to-r from-success-500 to-success-600 text-white text-lg font-bold px-4 py-2 rounded-full shadow-premium animate-pulse-soft border-2 border-white">
             {completionCount}
           </div>
         </div>
       )}
 
-      {/* Main Button */}
+      {/* Main Button - Larger and more prominent */}
       <animated.button
         ref={buttonRef}
         {...gestureHandler()}
         className={`
-          relative w-32 h-32 sm:w-36 sm:h-36
+          relative w-40 h-40 sm:w-44 sm:h-44
           bg-gradient-to-br from-primary-500 via-secondary-500 to-primary-600
           flex items-center justify-center
           cursor-pointer select-none outline-none
@@ -513,16 +525,16 @@ const UnifiedTrackingButton = ({
                 {(() => {
                   const IconOrEmoji = getGestureIcon(gestureDirection);
                   if (typeof IconOrEmoji === 'string') {
-                    return <span className="text-4xl sm:text-5xl">{IconOrEmoji}</span>;
+                    return <span className="text-5xl sm:text-6xl">{IconOrEmoji}</span>;
                   }
                   return React.createElement(IconOrEmoji, { 
-                    className: "w-8 h-8 sm:w-10 sm:h-10" 
+                    className: "w-12 h-12 sm:w-14 sm:h-14" 
                   });
                 })()}
               </div>
             </div>
           ) : (
-            <div className="flex items-center justify-center text-4xl sm:text-5xl">
+            <div className="flex items-center justify-center text-5xl sm:text-6xl">
               {selectedGoal?.symbol || '🎯'}
             </div>
           )}
@@ -534,25 +546,25 @@ const UnifiedTrackingButton = ({
         )}
       </animated.button>
 
-      {/* Instructions - Only show when expanded and moved down */}
+      {/* Instructions - Moved much further down */}
       {isExpanded && (
-        <div className="absolute -bottom-32 left-1/2 transform -translate-x-1/2 text-center">
-          <div className="space-y-2">
-            <p className="text-base font-semibold text-gray-700">
+        <div className="absolute -bottom-40 left-1/2 transform -translate-x-1/2 text-center">
+          <div className="space-y-4">
+            <p className="text-xl font-bold text-gray-800">
               Swipe to complete
             </p>
-            <div className="flex items-center justify-center space-x-4 text-xs text-gray-600">
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-success-400 rounded-full"></div>
-                <span>Right: Comment</span>
+            <div className="flex items-center justify-center space-x-8 text-sm text-gray-600">
+              <div className="flex flex-col items-center space-y-1">
+                <div className="w-3 h-3 bg-success-400 rounded-full"></div>
+                <span className="font-medium">Right: Comment</span>
               </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-primary-400 rounded-full"></div>
-                <span>Up: Photo</span>
+              <div className="flex flex-col items-center space-y-1">
+                <div className="w-3 h-3 bg-primary-400 rounded-full"></div>
+                <span className="font-medium">Up: Photo</span>
               </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-error-400 rounded-full"></div>
-                <span>Left: Skip</span>
+              <div className="flex flex-col items-center space-y-1">
+                <div className="w-3 h-3 bg-error-400 rounded-full"></div>
+                <span className="font-medium">Left: Skip</span>
               </div>
             </div>
           </div>
