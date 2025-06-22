@@ -15,6 +15,7 @@ const TrackingScreen = ({ onBack }) => {
   const [entries, setEntries] = useState([])
   const [collaborators, setCollaborators] = useState([])
   const [userProfile, setUserProfile] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [trackingAction, setTrackingAction] = useState(null)
   const [showGoalModal, setShowGoalModal] = useState(false)
@@ -76,6 +77,8 @@ const TrackingScreen = ({ onBack }) => {
       const { data: { user }, error: userError } = await supabase.auth.getUser()
       
       if (userError || !user) return
+
+      setCurrentUser(user)
 
       const { data, error } = await supabase
         .from('profiles')
@@ -807,8 +810,8 @@ const TrackingScreen = ({ onBack }) => {
 
           <div className="space-y-4 sm:space-y-6">
             {entries.map((entry) => {
-              const { data: { user } } = supabase.auth.getUser()
-              const canEdit = user && entry.user_id === user.id
+              // Use currentUser instead of making async call
+              const canEdit = currentUser && entry.user_id === currentUser.id
 
               return (
                 <div
@@ -959,7 +962,7 @@ const TrackingScreen = ({ onBack }) => {
         onEdit={handleEntryEdit}
         onDelete={handleEntryDelete}
         position={contextMenuPosition}
-        canEdit={selectedEntry?.user_id === userProfile?.user_id}
+        canEdit={selectedEntry?.user_id === currentUser?.id}
       />
 
       {/* Goal Detail Modal */}
