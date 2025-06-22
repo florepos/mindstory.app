@@ -19,11 +19,10 @@ const UnifiedTrackingButton = ({
   const pressTimer = useRef(null)
   const progressTimer = useRef(null)
   const startTime = useRef(null)
-  const buttonRef = useRef(null)
 
   const EXPAND_DURATION = 3000
   const MAX_SCALE = 1.5
-  const GESTURE_THRESHOLD = 100 // Increased threshold for better detection
+  const GESTURE_THRESHOLD = 80
 
   // Main button animation
   const [buttonSpring, buttonApi] = useSpring(() => ({
@@ -125,7 +124,7 @@ const UnifiedTrackingButton = ({
 
   // Handle expansion completion
   const handleExpansionComplete = useCallback(() => {
-    console.log('✨ Expansion complete')
+    console.log('✨ Expansion complete - enabling drag')
     setIsExpanded(true)
     setProgress(100)
     
@@ -187,67 +186,12 @@ const UnifiedTrackingButton = ({
     })
   }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi])
 
-  // Gesture handler for expanded state with improved detection
-  const gestureHandler = useDrag(
-    ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], event }) => {
-      if (!isExpanded) return
-
-      console.log('👆 Gesture detected:', { active, mx, my, dx, dy, vx, vy })
-
-      // Prevent default touch behaviors
-      if (event) {
-        event.preventDefault()
-        event.stopPropagation()
-      }
-
-      const isSwipe = Math.abs(vx) > 0.4 || Math.abs(vy) > 0.4 // Increased velocity threshold
-      const distance = Math.sqrt(mx * mx + my * my)
-
-      if (active && distance > 30) { // Increased minimum distance
-        // Determine gesture direction with improved sensitivity
-        let direction = null
-        if (Math.abs(my) > Math.abs(mx)) {
-          direction = my < 0 ? 'up' : 'down'
-        } else {
-          direction = mx > 0 ? 'right' : 'left'
-        }
-        
-        console.log('📍 Gesture direction:', direction, 'distance:', distance)
-        setGestureDirection(direction)
-        
-        // Visual feedback during gesture
-        if (distance > GESTURE_THRESHOLD) {
-          buttonApi.start({
-            scale: MAX_SCALE * 1.15,
-            glow: 1.8
-          })
-        }
-      } else if (!active && (isSwipe || distance > GESTURE_THRESHOLD)) {
-        // Execute gesture action
-        console.log('⚡ Executing gesture action:', gestureDirection)
-        executeGestureAction(gestureDirection)
-      } else if (!active) {
-        // Reset if no significant gesture
-        if (distance < GESTURE_THRESHOLD) {
-          // Default action (complete with comment)
-          executeGestureAction('right')
-        } else {
-          handlePressEnd()
-        }
-      }
-    },
-    {
-      axis: undefined,
-      threshold: 15, // Increased threshold
-      rubberband: true,
-      preventDefault: true,
-      filterTaps: true
-    }
-  )
-
   // Execute gesture action
   const executeGestureAction = useCallback((direction) => {
-    if (!onTrackingAction) return
+    if (!onTrackingAction) {
+      console.error('❌ onTrackingAction callback not provided')
+      return
+    }
 
     console.log('🎯 Executing action for direction:', direction)
     let action = 'done'
@@ -262,58 +206,104 @@ const UnifiedTrackingButton = ({
       case 'right':
         action = 'done'
         needsComment = true
+        console.log('➡️ Right swipe: Done with comment')
         break
       case 'left':
         action = 'not_done'
+        console.log('⬅️ Left swipe: Not done')
         break
       case 'up':
         if (onPhotoCapture) {
-          console.log('📸 Triggering photo capture')
+          console.log('📸 Up swipe: Triggering photo capture')
+          onPhotoCapture()
           handlePressEnd()
-          setTimeout(() => {
-            onPhotoCapture()
-          }, 100)
           return
         }
         action = 'done_with_photo'
+        console.log('📸 Up swipe: Done with photo')
         break
       default:
         action = 'done'
         needsComment = true
+        console.log('🎯 Default action: Done with comment')
         break
     }
 
-    // Success animation with onRest callback
+    // Success animation with callback
     buttonApi.start({
       scale: MAX_SCALE * 1.3,
       rotate: 720,
       glow: 2.5,
       onRest: () => {
+        console.log('🚀 Calling onTrackingAction with:', action, needsComment)
         onTrackingAction(action, needsComment)
         setTimeout(handlePressEnd, 300)
       }
     })
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
-  // Enhanced event handlers with better cross-platform support
-  const handlePointerDown = useCallback((e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    console.log('👇 Pointer down - type:', e.pointerType)
-    if (!isExpanded) handlePressStart()
-  }, [isExpanded, handlePressStart])
+  // Gesture handler using @use-gesture/react
+  const bind = useDrag(
+    ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], first, last }) => {
+      if (!isExpanded) return
 
-  const handlePointerUp = useCallback((e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    console.log('👆 Pointer up - type:', e.pointerType)
-    if (!isExpanded) handlePressEnd()
-  }, [isExpanded, handlePressEnd])
+      console.log('👆 Gesture:', { active, mx, my, dx, dy, vx, vy, first, last })
 
-  const handlePointerLeave = useCallback((e) => {
-    console.log('🚪 Pointer leave - type:', e.pointerType)
-    if (isPressed && !isExpanded) handlePressEnd()
-  }, [isPressed, isExpanded, handlePressEnd])
+      if (first) {
+        console.log('🎬 Gesture started')
+        setGestureDirection(null)
+      }
+
+      if (active) {
+        const distance = Math.sqrt(mx * mx + my * my)
+        
+        if (distance > 30) {
+          // Determine direction based on movement
+          let direction = null
+          if (Math.abs(my) > Math.abs(mx)) {
+            direction = my < 0 ? 'up' : 'down'
+          } else {
+            direction = mx > 0 ? 'right' : 'left'
+          }
+          
+          console.log('📍 Direction detected:', direction, 'distance:', distance)
+          setGestureDirection(direction)
+          
+          // Visual feedback during gesture
+          if (distance > GESTURE_THRESHOLD) {
+            buttonApi.start({
+              scale: MAX_SCALE * 1.15,
+              glow: 1.8
+            })
+          }
+        }
+      }
+
+      if (last) {
+        console.log('🏁 Gesture ended')
+        const distance = Math.sqrt(mx * mx + my * my)
+        const isSwipe = Math.abs(vx) > 0.3 || Math.abs(vy) > 0.3
+        
+        console.log('📊 Final gesture stats:', { distance, isSwipe, threshold: GESTURE_THRESHOLD })
+        
+        if (distance > GESTURE_THRESHOLD || isSwipe) {
+          console.log('✅ Gesture threshold met, executing action')
+          executeGestureAction(gestureDirection)
+        } else {
+          console.log('❌ Gesture threshold not met, resetting')
+          handlePressEnd()
+        }
+      }
+    },
+    {
+      axis: undefined,
+      threshold: 10,
+      rubberband: true,
+      preventDefault: true,
+      filterTaps: true,
+      enabled: isExpanded
+    }
+  )
 
   // Handle click for quick actions when not expanded
   const handleClick = useCallback((e) => {
@@ -321,46 +311,29 @@ const UnifiedTrackingButton = ({
     e.stopPropagation()
     console.log('🖱️ Click triggered, isExpanded:', isExpanded, 'isPressed:', isPressed)
     
-    if (!isExpanded && !isPressed && selectedGoal) {
+    if (!isExpanded && !isPressed && selectedGoal && onTrackingAction) {
       console.log('⚡ Quick action triggered')
-      if (onTrackingAction) {
-        onTrackingAction('done', true)
-      }
+      onTrackingAction('done', true)
     }
   }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
 
-  // Touch event handlers for better mobile support
-  const handleTouchStart = useCallback((e) => {
+  // Mouse/touch event handlers for long press
+  const handlePointerDown = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('👆 Touch start')
+    console.log('👇 Pointer down')
     if (!isExpanded) handlePressStart()
   }, [isExpanded, handlePressStart])
 
-  const handleTouchEnd = useCallback((e) => {
+  const handlePointerUp = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('👆 Touch end')
+    console.log('👆 Pointer up')
     if (!isExpanded) handlePressEnd()
   }, [isExpanded, handlePressEnd])
 
-  // Mouse event handlers for desktop
-  const handleMouseDown = useCallback((e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    console.log('🖱️ Mouse down')
-    if (!isExpanded) handlePressStart()
-  }, [isExpanded, handlePressStart])
-
-  const handleMouseUp = useCallback((e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    console.log('🖱️ Mouse up')
-    if (!isExpanded) handlePressEnd()
-  }, [isExpanded, handlePressEnd])
-
-  const handleMouseLeave = useCallback((e) => {
-    console.log('🖱️ Mouse leave')
+  const handlePointerLeave = useCallback((e) => {
+    console.log('🚪 Pointer leave')
     if (isPressed && !isExpanded) handlePressEnd()
   }, [isPressed, isExpanded, handlePressEnd])
 
@@ -480,8 +453,7 @@ const UnifiedTrackingButton = ({
 
       {/* Main Button - Larger and more prominent */}
       <animated.button
-        ref={buttonRef}
-        {...gestureHandler()}
+        {...bind()}
         className={`
           relative w-40 h-40 sm:w-44 sm:h-44
           bg-gradient-to-br from-primary-500 via-secondary-500 to-primary-600
@@ -502,15 +474,14 @@ const UnifiedTrackingButton = ({
           borderStyle: 'solid',
           touchAction: 'none'
         }}
-        // Multiple event handlers for maximum compatibility
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
+        onTouchStart={handlePointerDown}
+        onTouchEnd={handlePointerUp}
+        onMouseDown={handlePointerDown}
+        onMouseUp={handlePointerUp}
+        onMouseLeave={handlePointerLeave}
         onClick={handleClick}
         onContextMenu={(e) => e.preventDefault()}
         disabled={disabled}
