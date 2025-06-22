@@ -66,7 +66,8 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
 
   const fetchRecentEntries = async () => {
     try {
-      const { data, error } = await supabase
+      // First, fetch goal entries with their associated goals
+      const { data: entriesData, error: entriesError } = await supabase
         .from('goal_entries')
         .select(`
           *,
@@ -75,24 +76,48 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
             name,
             symbol,
             privacy_level
-          ),
-          profiles (
-            display_name,
-            avatar_url
           )
         `)
         .in('status', ['done', 'done_with_photo'])
         .order('completed_at', { ascending: false })
         .limit(8)
 
-      if (error) throw error
+      if (entriesError) throw entriesError
 
       // Filter for public entries only
-      const publicEntries = (data || []).filter(entry => 
+      const publicEntries = (entriesData || []).filter(entry => 
         entry.goals && entry.goals.privacy_level === 'public_challenge'
       )
+
+      if (publicEntries.length === 0) {
+        setRecentEntries([])
+        return
+      }
+
+      // Extract unique user IDs from the entries
+      const userIds = [...new Set(publicEntries.map(entry => entry.user_id))]
+
+      // Fetch profiles for these users
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('user_id, display_name, avatar_url')
+        .in('user_id', userIds)
+
+      if (profilesError) throw profilesError
+
+      // Create a map of user_id to profile for easy lookup
+      const profilesMap = (profilesData || []).reduce((acc, profile) => {
+        acc[profile.user_id] = profile
+        return acc
+      }, {})
+
+      // Merge profiles data into entries
+      const entriesWithProfiles = publicEntries.map(entry => ({
+        ...entry,
+        profiles: profilesMap[entry.user_id] || null
+      }))
       
-      setRecentEntries(publicEntries)
+      setRecentEntries(entriesWithProfiles)
     } catch (error) {
       console.error('Error fetching recent entries:', error)
     }
@@ -493,10 +518,18 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
                   )}
                   
                   <div className="flex items-center space-x-2 text-xs text-gray-500">
-                    <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                      <span className="text-xs font-medium">A</span>
-                    </div>
-                    <span>Anonymous User</span>
+                    {entry.profiles?.avatar_url ? (
+                      <img
+                        src={entry.profiles.avatar_url}
+                        alt={entry.profiles.display_name}
+                        className="w-6 h-6 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
+                        <span className="text-xs font-medium">A</span>
+                      </div>
+                    )}
+                    <span>{entry.profiles?.display_name || 'Anonymous User'}</span>
                   </div>
                 </div>
               ))}
