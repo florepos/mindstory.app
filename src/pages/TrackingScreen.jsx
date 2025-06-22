@@ -441,14 +441,64 @@ const TrackingScreen = ({ onBack }) => {
     fetchEntries()
   }
 
+  // Enhanced entry edit functionality
   const handleEntryEdit = (entry) => {
-    // Implement entry editing
     console.log('Edit entry:', entry)
+    // For now, we'll show an alert. In a full implementation, this would open an edit modal
+    alert(`Edit functionality for entry "${entry.goals?.name}" will be implemented in a future update.`)
   }
 
-  const handleEntryDelete = (entryId) => {
-    setEntries(prev => prev.filter(e => e.id !== entryId))
-    setShowContextMenu(false)
+  // Enhanced entry delete functionality
+  const handleEntryDelete = async (entryId) => {
+    try {
+      const { error } = await supabase
+        .from('goal_entries')
+        .delete()
+        .eq('id', entryId)
+
+      if (error) throw error
+
+      setEntries(prev => prev.filter(e => e.id !== entryId))
+      setShowContextMenu(false)
+      
+      // Show success feedback
+      alert('Entry deleted successfully!')
+    } catch (error) {
+      console.error('Error deleting entry:', error)
+      alert('Failed to delete entry. Please try again.')
+    }
+  }
+
+  // Enhanced share functionality
+  const handleEntryShare = async (entry) => {
+    try {
+      const shareText = `🎯 ${entry.goals?.name}\n${getStatusText(entry.status)} on ${formatDate(entry.completed_at)}\n\n#MindStory #Goals #Progress`
+      
+      if (navigator.share) {
+        await navigator.share({
+          title: `${entry.goals?.name} - Progress`,
+          text: shareText,
+          url: window.location.href
+        })
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(shareText)
+        alert('Progress copied to clipboard!')
+      } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea')
+        textArea.value = shareText
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        alert('Progress copied to clipboard!')
+      }
+    } catch (error) {
+      console.error('Error sharing entry:', error)
+      if (error.name !== 'AbortError') {
+        alert('Failed to share. Please try again.')
+      }
+    }
   }
 
   const getGoalTypeIcon = (goal) => {
@@ -942,8 +992,7 @@ const TrackingScreen = ({ onBack }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            // Handle share
-                            console.log('Share entry:', entry.id)
+                            handleEntryShare(entry)
                           }}
                           className="p-2 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-lg"
                           title="Share"
