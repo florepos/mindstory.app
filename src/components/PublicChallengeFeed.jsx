@@ -37,7 +37,7 @@ const PublicChallengeFeed = () => {
             )
           )
         `)
-        .eq('goal_type', 'public_challenge')
+        .eq('privacy_level', 'public_challenge')
         .order('created_at', { ascending: false })
 
       // Apply filters
