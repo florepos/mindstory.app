@@ -10,7 +10,7 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
     name: '',
     description: '',
     symbol: '🎯',
-    goal_type: 'private',
+    privacy_level: 'private',
     is_countable: false,
     target_unit: 'completions',
     frequency: 3,
@@ -66,12 +66,21 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
         throw new Error('You must be logged in to create goals')
       }
 
+      // Determine goal_type based on goal characteristics
+      let goal_type = 'weekly' // default
+      if (formData.end_date) {
+        goal_type = 'deadline'
+      } else if (formData.total_target) {
+        goal_type = 'absolute'
+      }
+
       const goalData = {
         user_id: user.id,
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         symbol: formData.symbol,
-        goal_type: formData.goal_type,
+        goal_type: goal_type,
+        privacy_level: formData.privacy_level,
         is_countable: formData.is_countable,
         target_unit: formData.is_countable ? formData.target_unit : 'completions',
         frequency: formData.frequency || null,
@@ -81,7 +90,8 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
         challenge_end_date: formData.challenge_end_date || null,
         max_participants: formData.max_participants || null,
         weekdays: formData.weekdays.length > 0 ? formData.weekdays : null,
-        reminder: false
+        reminder: false,
+        is_challenge: formData.privacy_level === 'public_challenge' || formData.privacy_level === 'friends_challenge'
       }
 
       const { data: goal, error: goalError } = await supabase
@@ -93,7 +103,7 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
       if (goalError) throw goalError
 
       // Add creator as owner in collaborators for friend challenges
-      if (formData.goal_type === 'friends_challenge') {
+      if (formData.privacy_level === 'friends_challenge') {
         const { error: collaboratorError } = await supabase
           .from('goal_collaborators')
           .insert([{
@@ -122,7 +132,7 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
       }
 
       // Add creator as participant for challenges
-      if (formData.goal_type === 'public_challenge' || formData.goal_type === 'friends_challenge') {
+      if (formData.privacy_level === 'public_challenge' || formData.privacy_level === 'friends_challenge') {
         await supabase
           .from('goal_participants')
           .insert([{
@@ -137,7 +147,7 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
         name: '',
         description: '',
         symbol: '🎯',
-        goal_type: 'private',
+        privacy_level: 'private',
         is_countable: false,
         target_unit: 'completions',
         frequency: 3,
@@ -269,9 +279,9 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, goal_type: 'private' }))}
+                onClick={() => setFormData(prev => ({ ...prev, privacy_level: 'private' }))}
                 className={`p-6 rounded-xl border-2 transition-all duration-300 ${
-                  formData.goal_type === 'private'
+                  formData.privacy_level === 'private'
                     ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-primary-100'
                     : 'border-gray-200 hover:border-gray-300 glass-card'
                 }`}
@@ -284,9 +294,9 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
 
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, goal_type: 'friends_challenge' }))}
+                onClick={() => setFormData(prev => ({ ...prev, privacy_level: 'friends_challenge' }))}
                 className={`p-6 rounded-xl border-2 transition-all duration-300 ${
-                  formData.goal_type === 'friends_challenge'
+                  formData.privacy_level === 'friends_challenge'
                     ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-primary-100'
                     : 'border-gray-200 hover:border-gray-300 glass-card'
                 }`}
@@ -299,9 +309,9 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
 
               <button
                 type="button"
-                onClick={() => setFormData(prev => ({ ...prev, goal_type: 'public_challenge' }))}
+                onClick={() => setFormData(prev => ({ ...prev, privacy_level: 'public_challenge' }))}
                 className={`p-6 rounded-xl border-2 transition-all duration-300 ${
-                  formData.goal_type === 'public_challenge'
+                  formData.privacy_level === 'public_challenge'
                     ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-primary-100'
                     : 'border-gray-200 hover:border-gray-300 glass-card'
                 }`}
@@ -357,7 +367,7 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
           </div>
 
           {/* Challenge Settings */}
-          {(formData.goal_type === 'friends_challenge' || formData.goal_type === 'public_challenge') && (
+          {(formData.privacy_level === 'friends_challenge' || formData.privacy_level === 'public_challenge') && (
             <div className="glass-card p-6 rounded-xl">
               <h4 className="text-lg font-semibold text-gray-800 mb-4">Challenge Settings</h4>
               
@@ -395,7 +405,7 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
                 </div>
               </div>
 
-              {formData.goal_type === 'public_challenge' && (
+              {formData.privacy_level === 'public_challenge' && (
                 <div className="mt-6">
                   <label className="block text-base font-semibold text-gray-700 mb-3">
                     <Users className="w-4 h-4 inline mr-2" />
@@ -417,7 +427,7 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
           )}
 
           {/* Friends Invitation */}
-          {formData.goal_type === 'friends_challenge' && (
+          {formData.privacy_level === 'friends_challenge' && (
             <div>
               <label className="block text-lg font-semibold text-gray-700 mb-4">
                 Invite Friends
