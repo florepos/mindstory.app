@@ -102,10 +102,13 @@ const GoalSlider = ({ selectedGoalId, onGoalSelect, refreshTrigger }) => {
   }
 
   const handleGoalDeleted = (deletedGoalId) => {
-    setGoals(prev => prev.filter(g => g.id !== deletedGoalId))
-    if (selectedGoalId === deletedGoalId) {
-      onGoalSelect(goals.length > 1 ? goals.find(g => g.id !== deletedGoalId)?.id : null)
-    }
+    setGoals(prev => {
+      const updated = prev.filter(g => g.id !== deletedGoalId)
+      if (selectedGoalId === deletedGoalId) {
+        onGoalSelect(updated.length ? updated[0].id : null)
+      }
+      return updated
+    })
     setShowEditModal(false)
     setEditingGoal(null)
   }
