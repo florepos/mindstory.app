@@ -15,14 +15,15 @@ const UnifiedTrackingButton = ({
   const [isExpanded, setIsExpanded] = useState(false)
   const [progress, setProgress] = useState(0)
   const [gestureDirection, setGestureDirection] = useState(null)
+  const [isDragging, setIsDragging] = useState(false)
   
   const pressTimer = useRef(null)
   const progressTimer = useRef(null)
   const startTime = useRef(null)
 
-  const EXPAND_DURATION = 3000
+  const EXPAND_DURATION = 1000 // Reduced to 1 second
   const MAX_SCALE = 1.5
-  const GESTURE_THRESHOLD = 100 // Increased threshold for better detection
+  const GESTURE_THRESHOLD = 60 // Reduced threshold for easier gestures
 
   // Main button animation
   const [buttonSpring, buttonApi] = useSpring(() => ({
@@ -59,6 +60,7 @@ const UnifiedTrackingButton = ({
   const handlePressStart = useCallback(() => {
     if (disabled || !selectedGoal) return
 
+    console.log('🚀 Press start triggered')
     setIsPressed(true)
     startTime.current = Date.now()
     
@@ -123,6 +125,7 @@ const UnifiedTrackingButton = ({
 
   // Handle expansion completion
   const handleExpansionComplete = useCallback(() => {
+    console.log('✨ Expansion complete - enabling drag')
     setIsExpanded(true)
     setProgress(100)
     
@@ -145,10 +148,12 @@ const UnifiedTrackingButton = ({
   const handlePressEnd = useCallback(() => {
     if (!isPressed && !isExpanded) return
 
+    console.log('🛑 Press end triggered')
     setIsPressed(false)
     setIsExpanded(false)
     setProgress(0)
     setGestureDirection(null)
+    setIsDragging(false)
     startTime.current = null
 
     // Clear timers
@@ -186,9 +191,11 @@ const UnifiedTrackingButton = ({
   // Execute gesture action
   const executeGestureAction = useCallback((direction) => {
     if (!onTrackingAction) {
+      console.error('❌ onTrackingAction callback not provided')
       return
     }
 
+    console.log('🎯 Executing action for direction:', direction)
     let action = 'done'
     let needsComment = false
 
@@ -201,21 +208,26 @@ const UnifiedTrackingButton = ({
       case 'right':
         action = 'done'
         needsComment = true
+        console.log('➡️ Right swipe: Done with comment')
         break
       case 'left':
         action = 'not_done'
+        console.log('⬅️ Left swipe: Not done')
         break
       case 'up':
         if (onPhotoCapture) {
+          console.log('📸 Up swipe: Triggering photo capture')
           onPhotoCapture()
           handlePressEnd()
           return
         }
         action = 'done_with_photo'
+        console.log('📸 Up swipe: Done with photo')
         break
       default:
         action = 'done'
         needsComment = true
+        console.log('🎯 Default action: Done with comment')
         break
     }
 
@@ -225,27 +237,41 @@ const UnifiedTrackingButton = ({
       rotate: 720,
       glow: 2.5,
       onRest: () => {
+        console.log('🚀 Calling onTrackingAction with:', action, needsComment)
         onTrackingAction(action, needsComment)
         setTimeout(handlePressEnd, 300)
       }
     })
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
-  // Enhanced gesture handler with better detection
+  // Enhanced gesture handler with comprehensive logging
   const bind = useDrag(
-    ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], first, last }) => {
+    ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], first, last, event }) => {
       if (!isExpanded) {
+        console.log('❌ Gesture ignored - not expanded')
         return
       }
 
+      console.log('👆 Gesture:', { 
+        active, 
+        movement: [Math.round(mx), Math.round(my)], 
+        direction: [dx, dy], 
+        velocity: [Math.round(vx * 100) / 100, Math.round(vy * 100) / 100],
+        first, 
+        last,
+        eventType: event?.type
+      })
+
       if (first) {
+        console.log('🎬 Gesture started')
+        setIsDragging(true)
         setGestureDirection(null)
       }
 
       if (active) {
         const distance = Math.sqrt(mx * mx + my * my)
         
-        if (distance > 20) { // Reduced threshold for better responsiveness
+        if (distance > 15) { // Lower threshold for direction detection
           // Determine direction based on movement with better logic
           let direction = null
           const absX = Math.abs(mx)
@@ -259,10 +285,11 @@ const UnifiedTrackingButton = ({
             direction = mx > 0 ? 'right' : 'left'
           }
           
+          console.log('📍 Direction detected:', direction, 'distance:', Math.round(distance), 'movement:', [Math.round(mx), Math.round(my)])
           setGestureDirection(direction)
           
           // Visual feedback during gesture with stronger effect
-          if (distance > GESTURE_THRESHOLD * 0.3) { // Earlier visual feedback
+          if (distance > GESTURE_THRESHOLD * 0.3) {
             buttonApi.start({
               scale: MAX_SCALE * 1.15,
               glow: 1.8
@@ -272,27 +299,40 @@ const UnifiedTrackingButton = ({
       }
 
       if (last) {
+        console.log('🏁 Gesture ended')
+        setIsDragging(false)
         const distance = Math.sqrt(mx * mx + my * my)
-        const isSwipe = Math.abs(vx) > 0.15 || Math.abs(vy) > 0.15 // Lower velocity threshold
+        const isSwipe = Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1
         
-        if (distance > GESTURE_THRESHOLD * 0.7 || isSwipe) { // Reduced distance threshold
+        console.log('📊 Final gesture stats:', { 
+          distance: Math.round(distance), 
+          isSwipe, 
+          threshold: GESTURE_THRESHOLD,
+          velocity: [Math.round(vx * 100) / 100, Math.round(vy * 100) / 100]
+        })
+        
+        if (distance > GESTURE_THRESHOLD || isSwipe) {
+          console.log('✅ Gesture threshold met, executing action for direction:', gestureDirection)
           if (gestureDirection && gestureDirection !== 'down') {
             executeGestureAction(gestureDirection)
           } else {
+            console.log('❌ Invalid direction or downward gesture, resetting')
             handlePressEnd()
           }
         } else {
+          console.log('❌ Gesture threshold not met, resetting')
           handlePressEnd()
         }
       }
     },
     {
       axis: undefined, // Allow all directions
-      threshold: 5, // Even lower threshold for better responsiveness
+      threshold: 5, // Very low threshold for initial detection
       rubberband: true,
       preventDefault: true,
       filterTaps: true,
-      enabled: isExpanded // Only enable when expanded
+      enabled: isExpanded, // Only enable when expanded
+      pointer: { touch: true } // Explicitly enable touch
     }
   )
 
@@ -300,8 +340,10 @@ const UnifiedTrackingButton = ({
   const handleClick = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
+    console.log('🖱️ Click triggered, isExpanded:', isExpanded, 'isPressed:', isPressed)
     
     if (!isExpanded && !isPressed && selectedGoal && onTrackingAction) {
+      console.log('⚡ Quick action triggered')
       onTrackingAction('done', true)
     }
   }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
@@ -310,6 +352,7 @@ const UnifiedTrackingButton = ({
   const handlePointerDown = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
+    console.log('👇 Pointer down - type:', e.pointerType, 'button:', e.button)
     if (!isExpanded && e.button === 0) { // Only left mouse button or touch
       handlePressStart()
     }
@@ -318,20 +361,23 @@ const UnifiedTrackingButton = ({
   const handlePointerUp = useCallback((e) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!isExpanded) {
+    console.log('👆 Pointer up - type:', e.pointerType)
+    if (!isExpanded && !isDragging) {
       handlePressEnd()
     }
-  }, [isExpanded, handlePressEnd])
+  }, [isExpanded, isDragging, handlePressEnd])
 
   const handlePointerLeave = useCallback((e) => {
-    if (isPressed && !isExpanded) {
+    console.log('🚪 Pointer leave - type:', e.pointerType)
+    if (isPressed && !isExpanded && !isDragging) {
       handlePressEnd()
     }
-  }, [isPressed, isExpanded, handlePressEnd])
+  }, [isPressed, isExpanded, isDragging, handlePressEnd])
 
   // Touch event handlers for better mobile support
   const handleTouchStart = useCallback((e) => {
     e.preventDefault()
+    console.log('📱 Touch start - touches:', e.touches.length)
     if (!isExpanded && e.touches.length === 1) { // Single touch only
       handlePressStart()
     }
@@ -339,14 +385,16 @@ const UnifiedTrackingButton = ({
 
   const handleTouchEnd = useCallback((e) => {
     e.preventDefault()
-    if (!isExpanded) {
+    console.log('📱 Touch end - touches:', e.touches.length)
+    if (!isExpanded && !isDragging) {
       handlePressEnd()
     }
-  }, [isExpanded, handlePressEnd])
+  }, [isExpanded, isDragging, handlePressEnd])
 
   // Mouse event handlers for desktop
   const handleMouseDown = useCallback((e) => {
     e.preventDefault()
+    console.log('🖱️ Mouse down - button:', e.button)
     if (!isExpanded && e.button === 0) { // Left mouse button only
       handlePressStart()
     }
@@ -354,16 +402,18 @@ const UnifiedTrackingButton = ({
 
   const handleMouseUp = useCallback((e) => {
     e.preventDefault()
-    if (!isExpanded) {
+    console.log('🖱️ Mouse up - button:', e.button)
+    if (!isExpanded && !isDragging) {
       handlePressEnd()
     }
-  }, [isExpanded, handlePressEnd])
+  }, [isExpanded, isDragging, handlePressEnd])
 
   const handleMouseLeave = useCallback((e) => {
-    if (isPressed && !isExpanded) {
+    console.log('🖱️ Mouse leave')
+    if (isPressed && !isExpanded && !isDragging) {
       handlePressEnd()
     }
-  }, [isPressed, isExpanded, handlePressEnd])
+  }, [isPressed, isExpanded, isDragging, handlePressEnd])
 
   const getGestureColor = (direction) => {
     switch (direction) {
@@ -384,7 +434,7 @@ const UnifiedTrackingButton = ({
   }
 
   return (
-    <div className={`relative flex flex-col items-center ${className}`} style={{ margin: '80px 0' }}>
+    <div className={`relative flex flex-col items-center ${className}`} style={{ margin: '60px 0' }}>
       {/* Progress Ring */}
       <animated.div
         style={{
@@ -422,7 +472,7 @@ const UnifiedTrackingButton = ({
         </svg>
       </animated.div>
 
-      {/* Direction Indicators - MUCH more spacious layout with increased distances */}
+      {/* Direction Indicators - Responsive positioning to stay within viewport */}
       <animated.div
         style={{
           opacity: isExpanded ? indicatorSpring.opacity : 0,
@@ -430,42 +480,42 @@ const UnifiedTrackingButton = ({
         }}
         className="absolute inset-0 pointer-events-none z-20"
       >
-        {/* Up - Camera - Moved even higher for desktop, responsive for mobile */}
-        <div className={`absolute -top-48 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
+        {/* Up - Camera - Responsive positioning */}
+        <div className={`absolute -top-32 sm:-top-40 left-1/2 transform -translate-x-1/2 transition-all duration-300 ${
           gestureDirection === 'up' ? 'scale-125 text-primary-500' : 'text-gray-400'
         }`}>
-          <div className="p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
-            <Camera className="w-10 h-10" />
+          <div className="p-6 sm:p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
+            <Camera className="w-8 sm:w-10 h-8 sm:h-10" />
           </div>
-          <div className="text-center mt-4 hidden sm:block">
-            <div className="text-base font-bold text-gray-700">Photo</div>
-            <div className="text-sm text-gray-500">Swipe up</div>
+          <div className="text-center mt-2 sm:mt-4 hidden sm:block">
+            <div className="text-sm sm:text-base font-bold text-gray-700">Photo</div>
+            <div className="text-xs sm:text-sm text-gray-500">Swipe up</div>
           </div>
         </div>
 
-        {/* Right - Comment - Responsive positioning to stay within viewport */}
-        <div className={`absolute top-1/2 -right-32 sm:-right-48 lg:-right-56 transform -translate-y-1/2 transition-all duration-300 ${
+        {/* Right - Comment - Responsive positioning */}
+        <div className={`absolute top-1/2 -right-24 sm:-right-32 lg:-right-40 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'right' ? 'scale-125 text-success-500' : 'text-gray-400'
         }`}>
-          <div className="p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
-            <MessageCircle className="w-10 h-10" />
+          <div className="p-6 sm:p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
+            <MessageCircle className="w-8 sm:w-10 h-8 sm:h-10" />
           </div>
-          <div className="text-center mt-4 hidden sm:block">
-            <div className="text-base font-bold text-gray-700">Comment</div>
-            <div className="text-sm text-gray-500">Swipe right</div>
+          <div className="text-center mt-2 sm:mt-4 hidden sm:block">
+            <div className="text-sm sm:text-base font-bold text-gray-700">Comment</div>
+            <div className="text-xs sm:text-sm text-gray-500">Swipe right</div>
           </div>
         </div>
 
-        {/* Left - Not Done - Responsive positioning to stay within viewport */}
-        <div className={`absolute top-1/2 -left-32 sm:-left-48 lg:-left-56 transform -translate-y-1/2 transition-all duration-300 ${
+        {/* Left - Not Done - Responsive positioning */}
+        <div className={`absolute top-1/2 -left-24 sm:-left-32 lg:-left-40 transform -translate-y-1/2 transition-all duration-300 ${
           gestureDirection === 'left' ? 'scale-125 text-error-500' : 'text-gray-400'
         }`}>
-          <div className="p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
-            <X className="w-10 h-10" />
+          <div className="p-6 sm:p-8 bg-white/95 backdrop-blur-sm rounded-full shadow-premium-lg border-2 border-white">
+            <X className="w-8 sm:w-10 h-8 sm:h-10" />
           </div>
-          <div className="text-center mt-4 hidden sm:block">
-            <div className="text-base font-bold text-gray-700">Skip</div>
-            <div className="text-sm text-gray-500">Swipe left</div>
+          <div className="text-center mt-2 sm:mt-4 hidden sm:block">
+            <div className="text-sm sm:text-base font-bold text-gray-700">Skip</div>
+            <div className="text-xs sm:text-sm text-gray-500">Swipe left</div>
           </div>
         </div>
       </animated.div>
@@ -549,14 +599,14 @@ const UnifiedTrackingButton = ({
         )}
       </animated.button>
 
-      {/* Instructions - Moved much further down (increased from -40 to -56) */}
+      {/* Instructions - Responsive positioning */}
       {isExpanded && (
-        <div className="absolute -bottom-48 sm:-bottom-56 lg:-bottom-64 left-1/2 transform -translate-x-1/2 text-center">
-          <div className="space-y-4">
-            <p className="text-xl font-bold text-gray-800">
+        <div className="absolute -bottom-32 sm:-bottom-40 left-1/2 transform -translate-x-1/2 text-center">
+          <div className="space-y-2 sm:space-y-4">
+            <p className="text-lg sm:text-xl font-bold text-gray-800">
               Swipe to complete
             </p>
-            <div className="hidden sm:flex items-center justify-center space-x-8 text-sm text-gray-600">
+            <div className="hidden sm:flex items-center justify-center space-x-6 sm:space-x-8 text-sm text-gray-600">
               <div className="flex flex-col items-center space-y-1">
                 <div className="w-3 h-3 bg-success-400 rounded-full"></div>
                 <span className="font-medium">Right: Comment</span>
@@ -580,16 +630,16 @@ const UnifiedTrackingButton = ({
 
       {/* Debug Info (development only) */}
       {import.meta.env.DEV && (
-        <div className="absolute -bottom-72 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white/80 p-3 rounded-lg border">
+        <div className="absolute -bottom-56 sm:-bottom-64 left-1/2 transform -translate-x-1/2 text-xs text-gray-500 bg-white/80 p-3 rounded-lg border max-w-xs">
           <div className="grid grid-cols-2 gap-2">
             <div>Pressed: {isPressed.toString()}</div>
             <div>Expanded: {isExpanded.toString()}</div>
             <div>Progress: {Math.round(progress)}%</div>
             <div>Direction: {gestureDirection || 'none'}</div>
+            <div>Dragging: {isDragging.toString()}</div>
             <div>Goal: {selectedGoal?.name || 'none'}</div>
             <div>Disabled: {disabled.toString()}</div>
             <div>Callback: {onTrackingAction ? 'present' : 'missing'}</div>
-            <div>Photo CB: {onPhotoCapture ? 'present' : 'missing'}</div>
           </div>
         </div>
       )}
