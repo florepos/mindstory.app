@@ -73,7 +73,7 @@ const CreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
 
       if (collaboratorError) throw collaboratorError
 
-      // Handle friend invitations for friends goals
+      // Handle friend invitations for friends' goals
       if (formData.goal_type === 'friends' && inviteEmails.some(email => email.trim())) {
         const validEmails = inviteEmails.filter(email => email.trim() && email.includes('@'))
         
