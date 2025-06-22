@@ -1,6 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { useSpring, animated, config } from '@react-spring/web'
-import { useDrag } from '@use-gesture/react'
 import { Camera, Check, X, MessageCircle } from 'lucide-react'
 
 const UnifiedTrackingButton = ({ 
@@ -16,14 +15,17 @@ const UnifiedTrackingButton = ({
   const [progress, setProgress] = useState(0)
   const [gestureDirection, setGestureDirection] = useState(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const [dragCurrent, setDragCurrent] = useState({ x: 0, y: 0 })
   
   const pressTimer = useRef(null)
   const progressTimer = useRef(null)
   const startTime = useRef(null)
+  const buttonRef = useRef(null)
 
-  const EXPAND_DURATION = 1000 // Reduced to 1 second
+  const EXPAND_DURATION = 1000
   const MAX_SCALE = 1.5
-  const GESTURE_THRESHOLD = 60 // Reduced threshold for easier gestures
+  const GESTURE_THRESHOLD = 50 // Noch niedriger für einfachere Gesten
 
   // Main button animation
   const [buttonSpring, buttonApi] = useSpring(() => ({
@@ -146,14 +148,14 @@ const UnifiedTrackingButton = ({
 
   // End press/reset
   const handlePressEnd = useCallback(() => {
-    if (!isPressed && !isExpanded) return
-
     console.log('🛑 Press end triggered')
     setIsPressed(false)
     setIsExpanded(false)
     setProgress(0)
     setGestureDirection(null)
     setIsDragging(false)
+    setDragStart({ x: 0, y: 0 })
+    setDragCurrent({ x: 0, y: 0 })
     startTime.current = null
 
     // Clear timers
@@ -186,7 +188,7 @@ const UnifiedTrackingButton = ({
       opacity: 1,
       scale: 1
     })
-  }, [isPressed, isExpanded, buttonApi, progressApi, indicatorApi])
+  }, [buttonApi, progressApi, indicatorApi])
 
   // Execute gesture action
   const executeGestureAction = useCallback((direction) => {
@@ -244,97 +246,104 @@ const UnifiedTrackingButton = ({
     })
   }, [onTrackingAction, onPhotoCapture, buttonApi, handlePressEnd])
 
-  // Enhanced gesture handler with comprehensive logging
-  const bind = useDrag(
-    ({ active, movement: [mx, my], direction: [dx, dy], velocity: [vx, vy], first, last, event }) => {
-      if (!isExpanded) {
-        console.log('❌ Gesture ignored - not expanded')
-        return
+  // KOMPLETT NEUES DRAG-SYSTEM - Ohne @use-gesture/react
+  const handleDragStart = useCallback((e) => {
+    if (!isExpanded) return
+
+    console.log('🎬 Manual drag start')
+    setIsDragging(true)
+    setGestureDirection(null)
+
+    const point = e.touches ? 
+      { x: e.touches[0].clientX, y: e.touches[0].clientY } :
+      { x: e.clientX, y: e.clientY }
+
+    setDragStart(point)
+    setDragCurrent(point)
+
+    // Prevent default behaviors
+    e.preventDefault()
+    e.stopPropagation()
+  }, [isExpanded])
+
+  const handleDragMove = useCallback((e) => {
+    if (!isDragging || !isExpanded) return
+
+    console.log('👆 Manual drag move')
+    
+    const point = e.touches ? 
+      { x: e.touches[0].clientX, y: e.touches[0].clientY } :
+      { x: e.clientX, y: e.clientY }
+
+    setDragCurrent(point)
+
+    const deltaX = point.x - dragStart.x
+    const deltaY = point.y - dragStart.y
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+    console.log('📍 Drag delta:', { deltaX: Math.round(deltaX), deltaY: Math.round(deltaY), distance: Math.round(distance) })
+
+    if (distance > 20) {
+      let direction = null
+      const absX = Math.abs(deltaX)
+      const absY = Math.abs(deltaY)
+      
+      if (absY > absX) {
+        direction = deltaY < 0 ? 'up' : 'down'
+      } else {
+        direction = deltaX > 0 ? 'right' : 'left'
       }
-
-      console.log('👆 Gesture:', { 
-        active, 
-        movement: [Math.round(mx), Math.round(my)], 
-        direction: [dx, dy], 
-        velocity: [Math.round(vx * 100) / 100, Math.round(vy * 100) / 100],
-        first, 
-        last,
-        eventType: event?.type
-      })
-
-      if (first) {
-        console.log('🎬 Gesture started')
-        setIsDragging(true)
-        setGestureDirection(null)
-      }
-
-      if (active) {
-        const distance = Math.sqrt(mx * mx + my * my)
-        
-        if (distance > 15) { // Lower threshold for direction detection
-          // Determine direction based on movement with better logic
-          let direction = null
-          const absX = Math.abs(mx)
-          const absY = Math.abs(my)
-          
-          if (absY > absX) {
-            // Vertical movement is dominant
-            direction = my < 0 ? 'up' : 'down'
-          } else {
-            // Horizontal movement is dominant
-            direction = mx > 0 ? 'right' : 'left'
-          }
-          
-          console.log('📍 Direction detected:', direction, 'distance:', Math.round(distance), 'movement:', [Math.round(mx), Math.round(my)])
-          setGestureDirection(direction)
-          
-          // Visual feedback during gesture with stronger effect
-          if (distance > GESTURE_THRESHOLD * 0.3) {
-            buttonApi.start({
-              scale: MAX_SCALE * 1.15,
-              glow: 1.8
-            })
-          }
-        }
-      }
-
-      if (last) {
-        console.log('🏁 Gesture ended')
-        setIsDragging(false)
-        const distance = Math.sqrt(mx * mx + my * my)
-        const isSwipe = Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1
-        
-        console.log('📊 Final gesture stats:', { 
-          distance: Math.round(distance), 
-          isSwipe, 
-          threshold: GESTURE_THRESHOLD,
-          velocity: [Math.round(vx * 100) / 100, Math.round(vy * 100) / 100]
+      
+      console.log('📍 Direction detected:', direction)
+      setGestureDirection(direction)
+      
+      // Visual feedback during gesture
+      if (distance > GESTURE_THRESHOLD * 0.5) {
+        buttonApi.start({
+          scale: MAX_SCALE * 1.15,
+          glow: 1.8
         })
-        
-        if (distance > GESTURE_THRESHOLD || isSwipe) {
-          console.log('✅ Gesture threshold met, executing action for direction:', gestureDirection)
-          if (gestureDirection && gestureDirection !== 'down') {
-            executeGestureAction(gestureDirection)
-          } else {
-            console.log('❌ Invalid direction or downward gesture, resetting')
-            handlePressEnd()
-          }
-        } else {
-          console.log('❌ Gesture threshold not met, resetting')
-          handlePressEnd()
-        }
       }
-    },
-    {
-      axis: undefined, // Allow all directions
-      threshold: 5, // Very low threshold for initial detection
-      rubberband: true,
-      preventDefault: true,
-      filterTaps: true,
-      enabled: isExpanded, // Only enable when expanded
-      pointer: { touch: true } // Explicitly enable touch
     }
-  )
+
+    // Prevent default behaviors
+    e.preventDefault()
+    e.stopPropagation()
+  }, [isDragging, isExpanded, dragStart, buttonApi])
+
+  const handleDragEnd = useCallback((e) => {
+    if (!isDragging || !isExpanded) return
+
+    console.log('🏁 Manual drag end')
+    setIsDragging(false)
+
+    const deltaX = dragCurrent.x - dragStart.x
+    const deltaY = dragCurrent.y - dragStart.y
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+
+    console.log('📊 Final drag stats:', { 
+      distance: Math.round(distance), 
+      threshold: GESTURE_THRESHOLD,
+      direction: gestureDirection
+    })
+    
+    if (distance > GESTURE_THRESHOLD) {
+      console.log('✅ Gesture threshold met, executing action for direction:', gestureDirection)
+      if (gestureDirection && gestureDirection !== 'down') {
+        executeGestureAction(gestureDirection)
+      } else {
+        console.log('❌ Invalid direction or downward gesture, resetting')
+        handlePressEnd()
+      }
+    } else {
+      console.log('❌ Gesture threshold not met, resetting')
+      handlePressEnd()
+    }
+
+    // Prevent default behaviors
+    e.preventDefault()
+    e.stopPropagation()
+  }, [isDragging, isExpanded, dragCurrent, dragStart, gestureDirection, executeGestureAction, handlePressEnd])
 
   // Handle click for quick actions when not expanded
   const handleClick = useCallback((e) => {
@@ -348,72 +357,120 @@ const UnifiedTrackingButton = ({
     }
   }, [isExpanded, isPressed, selectedGoal, onTrackingAction])
 
-  // Enhanced event handlers with better debugging
+  // Enhanced event handlers - VEREINFACHT
   const handlePointerDown = useCallback((e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    console.log('👇 Pointer down - type:', e.pointerType, 'button:', e.button)
-    if (!isExpanded && e.button === 0) { // Only left mouse button or touch
+    console.log('👇 Pointer down - type:', e.pointerType, 'expanded:', isExpanded)
+    
+    if (!isExpanded) {
       handlePressStart()
+    } else {
+      handleDragStart(e)
     }
-  }, [isExpanded, handlePressStart])
+  }, [isExpanded, handlePressStart, handleDragStart])
+
+  const handlePointerMove = useCallback((e) => {
+    if (isExpanded && isDragging) {
+      handleDragMove(e)
+    }
+  }, [isExpanded, isDragging, handleDragMove])
 
   const handlePointerUp = useCallback((e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    console.log('👆 Pointer up - type:', e.pointerType)
-    if (!isExpanded && !isDragging) {
+    console.log('👆 Pointer up - expanded:', isExpanded, 'dragging:', isDragging)
+    
+    if (isExpanded && isDragging) {
+      handleDragEnd(e)
+    } else if (!isExpanded) {
       handlePressEnd()
     }
-  }, [isExpanded, isDragging, handlePressEnd])
+  }, [isExpanded, isDragging, handleDragEnd, handlePressEnd])
 
-  const handlePointerLeave = useCallback((e) => {
-    console.log('🚪 Pointer leave - type:', e.pointerType)
-    if (isPressed && !isExpanded && !isDragging) {
-      handlePressEnd()
-    }
-  }, [isPressed, isExpanded, isDragging, handlePressEnd])
-
-  // Touch event handlers for better mobile support
+  // Touch event handlers
   const handleTouchStart = useCallback((e) => {
-    e.preventDefault()
-    console.log('📱 Touch start - touches:', e.touches.length)
-    if (!isExpanded && e.touches.length === 1) { // Single touch only
+    console.log('📱 Touch start - expanded:', isExpanded)
+    
+    if (!isExpanded) {
       handlePressStart()
+    } else {
+      handleDragStart(e)
     }
-  }, [isExpanded, handlePressStart])
+  }, [isExpanded, handlePressStart, handleDragStart])
+
+  const handleTouchMove = useCallback((e) => {
+    if (isExpanded && isDragging) {
+      handleDragMove(e)
+    }
+  }, [isExpanded, isDragging, handleDragMove])
 
   const handleTouchEnd = useCallback((e) => {
-    e.preventDefault()
-    console.log('📱 Touch end - touches:', e.touches.length)
-    if (!isExpanded && !isDragging) {
+    console.log('📱 Touch end - expanded:', isExpanded, 'dragging:', isDragging)
+    
+    if (isExpanded && isDragging) {
+      handleDragEnd(e)
+    } else if (!isExpanded) {
       handlePressEnd()
     }
-  }, [isExpanded, isDragging, handlePressEnd])
+  }, [isExpanded, isDragging, handleDragEnd, handlePressEnd])
 
-  // Mouse event handlers for desktop
+  // Mouse event handlers
   const handleMouseDown = useCallback((e) => {
-    e.preventDefault()
-    console.log('🖱️ Mouse down - button:', e.button)
-    if (!isExpanded && e.button === 0) { // Left mouse button only
+    console.log('🖱️ Mouse down - expanded:', isExpanded)
+    
+    if (!isExpanded) {
       handlePressStart()
+    } else {
+      handleDragStart(e)
     }
-  }, [isExpanded, handlePressStart])
+  }, [isExpanded, handlePressStart, handleDragStart])
+
+  const handleMouseMove = useCallback((e) => {
+    if (isExpanded && isDragging) {
+      handleDragMove(e)
+    }
+  }, [isExpanded, isDragging, handleDragMove])
 
   const handleMouseUp = useCallback((e) => {
-    e.preventDefault()
-    console.log('🖱️ Mouse up - button:', e.button)
-    if (!isExpanded && !isDragging) {
+    console.log('🖱️ Mouse up - expanded:', isExpanded, 'dragging:', isDragging)
+    
+    if (isExpanded && isDragging) {
+      handleDragEnd(e)
+    } else if (!isExpanded) {
       handlePressEnd()
     }
-  }, [isExpanded, isDragging, handlePressEnd])
+  }, [isExpanded, isDragging, handleDragEnd, handlePressEnd])
 
-  const handleMouseLeave = useCallback((e) => {
-    console.log('🖱️ Mouse leave')
-    if (isPressed && !isExpanded && !isDragging) {
-      handlePressEnd()
+  // Global event listeners für drag moves und ends
+  useEffect(() => {
+    if (isExpanded && isDragging) {
+      const handleGlobalMove = (e) => {
+        if (e.type === 'pointermove') handlePointerMove(e)
+        else if (e.type === 'touchmove') handleTouchMove(e)
+        else if (e.type === 'mousemove') handleMouseMove(e)
+      }
+
+      const handleGlobalEnd = (e) => {
+        if (e.type === 'pointerup') handlePointerUp(e)
+        else if (e.type === 'touchend') handleTouchEnd(e)
+        else if (e.type === 'mouseup') handleMouseUp(e)
+      }
+
+      // Add global listeners
+      document.addEventListener('pointermove', handleGlobalMove, { passive: false })
+      document.addEventListener('pointerup', handleGlobalEnd, { passive: false })
+      document.addEventListener('touchmove', handleGlobalMove, { passive: false })
+      document.addEventListener('touchend', handleGlobalEnd, { passive: false })
+      document.addEventListener('mousemove', handleGlobalMove, { passive: false })
+      document.addEventListener('mouseup', handleGlobalEnd, { passive: false })
+
+      return () => {
+        document.removeEventListener('pointermove', handleGlobalMove)
+        document.removeEventListener('pointerup', handleGlobalEnd)
+        document.removeEventListener('touchmove', handleGlobalMove)
+        document.removeEventListener('touchend', handleGlobalEnd)
+        document.removeEventListener('mousemove', handleGlobalMove)
+        document.removeEventListener('mouseup', handleGlobalEnd)
+      }
     }
-  }, [isPressed, isExpanded, isDragging, handlePressEnd])
+  }, [isExpanded, isDragging, handlePointerMove, handlePointerUp, handleTouchMove, handleTouchEnd, handleMouseMove, handleMouseUp])
 
   const getGestureColor = (direction) => {
     switch (direction) {
@@ -529,9 +586,9 @@ const UnifiedTrackingButton = ({
         </div>
       )}
 
-      {/* Main Button - Enhanced with multiple event handlers */}
+      {/* Main Button - KOMPLETT ÜBERARBEITET */}
       <animated.button
-        {...bind()}
+        ref={buttonRef}
         className={`
           relative w-40 h-40 sm:w-44 sm:h-44
           bg-gradient-to-br from-primary-500 via-secondary-500 to-primary-600
@@ -550,19 +607,18 @@ const UnifiedTrackingButton = ({
           borderWidth: buttonSpring.borderWidth.to(w => `${w}px`),
           borderColor: isPressed || isExpanded ? '#f97316' : 'transparent',
           borderStyle: 'solid',
-          touchAction: 'none'
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          MozUserSelect: 'none',
+          msUserSelect: 'none'
         }}
         // Pointer Events (modern browsers)
         onPointerDown={handlePointerDown}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerLeave}
         // Touch Events (mobile)
         onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
         // Mouse Events (desktop fallback)
         onMouseDown={handleMouseDown}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
         // Click handler for quick actions
         onClick={handleClick}
         onContextMenu={(e) => e.preventDefault()}
@@ -640,6 +696,8 @@ const UnifiedTrackingButton = ({
             <div>Goal: {selectedGoal?.name || 'none'}</div>
             <div>Disabled: {disabled.toString()}</div>
             <div>Callback: {onTrackingAction ? 'present' : 'missing'}</div>
+            <div>DragStart: {Math.round(dragStart.x)},{Math.round(dragStart.y)}</div>
+            <div>DragCurrent: {Math.round(dragCurrent.x)},{Math.round(dragCurrent.y)}</div>
           </div>
         </div>
       )}
