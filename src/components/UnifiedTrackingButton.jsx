@@ -4,7 +4,6 @@ import { Camera, Check, X, MessageCircle } from 'lucide-react'
 
 const UnifiedTrackingButton = ({ 
   onTrackingAction,
-  onPhotoCapture,
   selectedGoal,
   disabled = false,
   className = '',
@@ -288,12 +287,6 @@ const UnifiedTrackingButton = ({
         console.log('⬅️ Left drag: Not done')
         break
       case 'up':
-        if (onPhotoCapture) {
-          console.log('📸 Up drag: Triggering photo capture')
-          onPhotoCapture()
-          resetButton()
-          return
-        }
         action = 'done_with_photo'
         console.log('📸 Up drag: Done with photo')
         break

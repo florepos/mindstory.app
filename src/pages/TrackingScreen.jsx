@@ -443,7 +443,7 @@ const TrackingScreen = ({ onBack }) => {
 
     if (action === 'done_with_photo') {
       console.log('📸 Triggering photo capture')
-      fileInputRef.current?.click()
+      triggerPhotoCapture()
     } else {
       const entry = { status: action }
       if (selectedGoal.is_countable || needsComment) {
@@ -457,34 +457,53 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  // Handle photo capture from unified button
-  const handlePhotoCapture = () => {
-    console.log('📸 Photo capture triggered from unified button')
-    
-    // Create a new file input for iOS Safari compatibility
+  // Simplified photo capture that works on all devices
+  const triggerPhotoCapture = () => {
+    console.log('📸 Starting photo capture process')
+
+    // For iOS Safari, we need to trigger within the user gesture
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = 'image/*'
-    input.capture = 'environment'
-    input.style.position = 'absolute'
-    input.style.left = '-9999px'
-    input.style.top = '-9999px'
-    input.style.opacity = '0'
+    input.capture = 'environment' // Prefer rear camera
+    
+    // Hide the input but keep it accessible
+    Object.assign(input.style, {
+      position: 'fixed',
+      top: '-1000px',
+      left: '-1000px',
+      opacity: '0',
+      pointerEvents: 'none'
+    })
     
     input.onchange = (e) => {
+      console.log('📁 File input change event triggered')
       const file = e.target.files?.[0]
-      if (file && selectedGoal) {
-        console.log('📁 File selected via dynamic input:', file.name, file.type, file.size)
+      
+      if (file) {
+        console.log('✅ File selected:', file.name, file.type, file.size)
         setSelectedPhotoFile(file)
         setPhotoPreviewUrl(URL.createObjectURL(file))
         setPendingEntry({ status: 'done_with_photo' })
         setShowCountableModal(true)
+      } else {
+        console.log('❌ No file selected')
       }
-      document.body.removeChild(input)
+      
+      // Clean up
+      if (input.parentNode) {
+        input.parentNode.removeChild(input)
+      }
     }
     
+    // Add to DOM and trigger
     document.body.appendChild(input)
-    input.click()
+    
+    // Small delay to ensure DOM insertion
+    setTimeout(() => {
+      console.log('🖱️ Triggering file input click')
+      input.click()
+    }, 10)
   }
 
   // Burger menu handlers
@@ -747,7 +766,6 @@ const TrackingScreen = ({ onBack }) => {
         )}
       </header>
 
-      {/* Click outside to close burger menu */}
       {showBurgerMenu && (
         <div 
           className="fixed inset-0 z-40" 
