@@ -404,11 +404,11 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
             {/* CTA Button */}
             <div className="mb-8 sm:mb-12">
               <button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => user ? onNavigateToTracking() : setShowAuthModal(true)}
                 className="btn-premium text-xl sm:text-2xl px-12 sm:px-16 py-6 sm:py-8 rounded-2xl sm:rounded-3xl shadow-premium-xl hover:shadow-glow-premium transform hover:scale-105 transition-all duration-500 group"
               >
                 <span className="flex items-center space-x-3">
-                  <span>Start My Journey</span>
+                  <span>{user ? 'Continue Tracking' : 'Start My Journey'}</span>
                   <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-300" />
                 </span>
               </button>
@@ -445,8 +445,11 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
                 <p className="text-lg sm:text-xl text-gray-600 leading-relaxed mb-8">
                   Uncover what really drives you.
                 </p>
-                <button className="btn-secondary-premium group-hover:shadow-premium-lg transition-all duration-300">
-                  Explore Now
+                <button 
+                  onClick={() => user ? onNavigateToTracking() : setShowAuthModal(true)}
+                  className="btn-secondary-premium group-hover:shadow-premium-lg transition-all duration-300"
+                >
+                  {user ? 'Start Tracking' : 'Explore Now'}
                 </button>
               </div>
             </div>
@@ -462,8 +465,11 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
                 <p className="text-lg sm:text-xl text-gray-600 leading-relaxed mb-8">
                   Photos, notes, swipes – just tap and grow.
                 </p>
-                <button className="btn-secondary-premium group-hover:shadow-premium-lg transition-all duration-300">
-                  Start Tracking
+                <button 
+                  onClick={() => user ? onNavigateToTracking() : setShowAuthModal(true)}
+                  className="btn-secondary-premium group-hover:shadow-premium-lg transition-all duration-300"
+                >
+                  {user ? 'Track Now' : 'Start Tracking'}
                 </button>
               </div>
             </div>
@@ -479,8 +485,11 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
                 <p className="text-lg sm:text-xl text-gray-600 leading-relaxed mb-8">
                   Join challenges, support each other.
                 </p>
-                <button className="btn-secondary-premium group-hover:shadow-premium-lg transition-all duration-300">
-                  Join Community
+                <button 
+                  onClick={() => user ? onNavigateToTracking() : setShowAuthModal(true)}
+                  className="btn-secondary-premium group-hover:shadow-premium-lg transition-all duration-300"
+                >
+                  {user ? 'View Community' : 'Join Community'}
                 </button>
               </div>
             </div>
@@ -546,10 +555,16 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
                       )}
                     </div>
                     <div className="space-y-3">
-                      <button className="btn-premium w-full">
+                      <button 
+                        onClick={() => user ? onNavigateToTracking() : setShowAuthModal(true)}
+                        className="btn-premium w-full"
+                      >
                         Join this challenge
                       </button>
-                      <button className="btn-secondary-premium w-full">
+                      <button 
+                        onClick={() => user ? onNavigateToTracking() : setShowAuthModal(true)}
+                        className="btn-secondary-premium w-full"
+                      >
                         Start something similar
                       </button>
                     </div>
@@ -562,10 +577,10 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
               <Globe className="w-16 h-16 mx-auto mb-6 text-gray-300" />
               <p className="text-xl font-semibold text-gray-500 mb-2">No public goals yet – be the first!</p>
               <button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => user ? onNavigateToTracking() : setShowAuthModal(true)}
                 className="btn-premium mt-6"
               >
-                Create First Public Goal
+                {user ? 'Create First Public Goal' : 'Sign Up to Create'}
               </button>
             </div>
           )}
@@ -699,13 +714,13 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
             
             <div className="mb-8 sm:mb-12">
               <button
-                onClick={() => setShowAuthModal(true)}
+                onClick={() => user ? onNavigateToTracking() : setShowAuthModal(true)}
                 className="btn-premium text-xl sm:text-2xl px-12 sm:px-16 py-6 sm:py-8 rounded-2xl sm:rounded-3xl shadow-premium-xl hover:shadow-glow-premium transform hover:scale-105 transition-all duration-500 group"
               >
                 <span className="flex items-center space-x-3">
-                  <span>Begin your MindStory</span>
+                  <span>{user ? 'Continue your MindStory' : 'Begin your MindStory'}</span>
                   <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-300" />
-                  <span>Join now</span>
+                  <span>{user ? 'Track now' : 'Join now'}</span>
                 </span>
               </button>
             </div>
