@@ -32,7 +32,7 @@ const TrackingScreen = ({ onBack }) => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [showBurgerMenu, setShowBurgerMenu] = useState(false)
   const [todayCompletions, setTodayCompletions] = useState(0)
-  const [isPhotoCapturePending, setIsPhotoCapturePending] = useState(false)
+  const [showPhotoConfirmButton, setShowPhotoConfirmButton] = useState(false)
   const goalScrollRef = useRef(null)
   const feedRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -346,23 +346,16 @@ const TrackingScreen = ({ onBack }) => {
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0]
     if (!file || !selectedGoal) {
-      setIsPhotoCapturePending(false)
+      setShowPhotoConfirmButton(false)
       return
     }
 
     console.log('📁 File selected:', file.name, file.type, file.size)
 
-    // Only proceed if this was triggered by photo capture action
-    if (!isPhotoCapturePending) {
-      console.log('❌ File selection not from photo capture action, ignoring')
-      event.target.value = ''
-      return
-    }
-
     setSelectedPhotoFile(file)
     setPhotoPreviewUrl(URL.createObjectURL(file))
     setPendingEntry({ status: 'done_with_photo' })
-    setIsPhotoCapturePending(false)
+    setShowPhotoConfirmButton(false)
     
     // Always show the countable modal for photo entries to allow adding comments
     console.log('📝 Opening modal for photo entry')
@@ -455,13 +448,7 @@ const TrackingScreen = ({ onBack }) => {
 
     if (action === 'done_with_photo') {
       console.log('📸 Triggering photo capture')
-      setIsPhotoCapturePending(true)
-      // Use the existing file input ref instead of creating dynamic ones
-      setTimeout(() => {
-        if (fileInputRef.current) {
-          fileInputRef.current.click()
-        }
-      }, 100) // Small delay to ensure state is set
+      setShowPhotoConfirmButton(true)
     } else {
       const entry = { status: action }
       if (selectedGoal.is_countable || needsComment) {
@@ -475,6 +462,16 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
+  // Handle photo confirmation click - direct user gesture
+  const handlePhotoConfirmClick = () => {
+    console.log('📸 Photo confirmation clicked - triggering camera')
+    setShowPhotoConfirmButton(false)
+    
+    // Direct call without any delays - this maintains the user gesture chain
+    if (fileInputRef.current) {
+      fileInputRef.current.click()
+    }
+  }
 
   // Burger menu handlers
   const toggleBurgerMenu = () => {
@@ -896,6 +893,36 @@ const TrackingScreen = ({ onBack }) => {
             className="relative z-30"
           />
           
+          {/* Photo Confirmation Button - Two-step process for mobile compatibility */}
+          {showPhotoConfirmButton && (
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center z-50 animate-scale-in">
+              <div className="premium-card p-8 max-w-sm w-full mx-4 text-center">
+                <div className="p-4 bg-gradient-to-br from-primary-500 to-primary-600 rounded-3xl w-20 h-20 mx-auto mb-6 flex items-center justify-center">
+                  <Camera className="w-10 h-10 text-white" />
+                </div>
+                <h3 className="text-2xl font-bold gradient-text-premium mb-4">Take Photo</h3>
+                <p className="text-gray-600 mb-8 text-lg">
+                  Tap the button below to open your camera and capture your progress.
+                </p>
+                <div className="flex space-x-4">
+                  <button
+                    onClick={() => setShowPhotoConfirmButton(false)}
+                    className="btn-secondary-premium flex-1"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handlePhotoConfirmClick}
+                    className="btn-premium flex-1 flex items-center justify-center space-x-2"
+                  >
+                    <Camera className="w-5 h-5" />
+                    <span>Open Camera</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Tracking Feedback */}
           {trackingAction && (
             <div className="mt-8 animate-scale-in relative z-20">
@@ -1142,6 +1169,7 @@ const TrackingScreen = ({ onBack }) => {
         onClose={() => {
           setShowCountableModal(false)
           setPendingEntry(null)
+          setShowPhotoConfirmButton(false)
           if (photoPreviewUrl) {
             URL.revokeObjectURL(photoPreviewUrl)
             setPhotoPreviewUrl('')
