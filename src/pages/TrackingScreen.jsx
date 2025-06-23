@@ -32,6 +32,7 @@ const TrackingScreen = ({ onBack }) => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [showBurgerMenu, setShowBurgerMenu] = useState(false)
   const [todayCompletions, setTodayCompletions] = useState(0)
+  const [isPhotoCapturePending, setIsPhotoCapturePending] = useState(false)
   const goalScrollRef = useRef(null)
   const feedRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -344,13 +345,24 @@ const TrackingScreen = ({ onBack }) => {
 
   const handleFileSelect = (event) => {
     const file = event.target.files?.[0]
-    if (!file || !selectedGoal) return
+    if (!file || !selectedGoal) {
+      setIsPhotoCapturePending(false)
+      return
+    }
 
     console.log('📁 File selected:', file.name, file.type, file.size)
+
+    // Only proceed if this was triggered by photo capture action
+    if (!isPhotoCapturePending) {
+      console.log('❌ File selection not from photo capture action, ignoring')
+      event.target.value = ''
+      return
+    }
 
     setSelectedPhotoFile(file)
     setPhotoPreviewUrl(URL.createObjectURL(file))
     setPendingEntry({ status: 'done_with_photo' })
+    setIsPhotoCapturePending(false)
     
     // Always show the countable modal for photo entries to allow adding comments
     console.log('📝 Opening modal for photo entry')
@@ -443,7 +455,13 @@ const TrackingScreen = ({ onBack }) => {
 
     if (action === 'done_with_photo') {
       console.log('📸 Triggering photo capture')
-      triggerPhotoCapture()
+      setIsPhotoCapturePending(true)
+      // Use the existing file input ref instead of creating dynamic ones
+      setTimeout(() => {
+        if (fileInputRef.current) {
+          fileInputRef.current.click()
+        }
+      }, 100) // Small delay to ensure state is set
     } else {
       const entry = { status: action }
       if (selectedGoal.is_countable || needsComment) {
@@ -457,54 +475,6 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  // Simplified photo capture that works on all devices
-  const triggerPhotoCapture = () => {
-    console.log('📸 Starting photo capture process')
-
-    // For iOS Safari, we need to trigger within the user gesture
-    const input = document.createElement('input')
-    input.type = 'file'
-    input.accept = 'image/*'
-    input.capture = 'environment' // Prefer rear camera
-    
-    // Hide the input but keep it accessible
-    Object.assign(input.style, {
-      position: 'fixed',
-      top: '-1000px',
-      left: '-1000px',
-      opacity: '0',
-      pointerEvents: 'none'
-    })
-    
-    input.onchange = (e) => {
-      console.log('📁 File input change event triggered')
-      const file = e.target.files?.[0]
-      
-      if (file) {
-        console.log('✅ File selected:', file.name, file.type, file.size)
-        setSelectedPhotoFile(file)
-        setPhotoPreviewUrl(URL.createObjectURL(file))
-        setPendingEntry({ status: 'done_with_photo' })
-        setShowCountableModal(true)
-      } else {
-        console.log('❌ No file selected')
-      }
-      
-      // Clean up
-      if (input.parentNode) {
-        input.parentNode.removeChild(input)
-      }
-    }
-    
-    // Add to DOM and trigger
-    document.body.appendChild(input)
-    
-    // Small delay to ensure DOM insertion
-    setTimeout(() => {
-      console.log('🖱️ Triggering file input click')
-      input.click()
-    }, 10)
-  }
 
   // Burger menu handlers
   const toggleBurgerMenu = () => {
@@ -778,8 +748,17 @@ const TrackingScreen = ({ onBack }) => {
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        capture="environment"
         onChange={handleFileSelect}
-        className="hidden ios-file-input-fix"
+        style={{
+          position: 'absolute',
+          left: '-9999px',
+          top: '-9999px',
+          opacity: 0,
+          pointerEvents: 'none',
+          width: '1px',
+          height: '1px'
+        }}
       />
 
       {/* Goal Selection - Updated spacing to -16px (4 units) */}
