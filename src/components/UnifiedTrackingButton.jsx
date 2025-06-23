@@ -288,9 +288,14 @@ const UnifiedTrackingButton = ({
         console.log('⬅️ Left drag: Not done')
         break
       case 'up':
-        // For iPhone Safari compatibility, we need to trigger file input in the same gesture
-        console.log('📸 Up drag: Triggering photo capture for mobile')
-        action = 'done_with_photo'
+        // For iPhone Safari, we need to trigger file input IMMEDIATELY in this callback
+        console.log('📸 Up drag: Direct file input trigger for iPhone compatibility')
+        if (onPhotoCapture) {
+          // Trigger file input directly in this gesture context
+          onPhotoCapture()
+          resetButton()
+          return
+        }
         break
       default:
         action = 'done'
@@ -305,13 +310,8 @@ const UnifiedTrackingButton = ({
       rotate: 720,
       glow: 2.5,
       onRest: () => {
-        console.log('🚀 Calling onTrackingAction with:', action, requiresComment, direction)
-        // For photo actions, pass the direction to indicate it's from drag
-        if (action === 'done_with_photo') {
-          onTrackingAction(action, requiresComment, direction)
-        } else {
-          onTrackingAction(action, requiresComment)
-        }
+        console.log('🚀 Calling onTrackingAction with:', action, requiresComment)
+        onTrackingAction(action, requiresComment)
         setTimeout(resetButton, 300)
       }
     })

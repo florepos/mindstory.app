@@ -440,19 +440,14 @@ const TrackingScreen = ({ onBack }) => {
   }
 
   // Handle unified tracking button actions
-  const handleTrackingAction = async (action, needsComment = false, dragDirection = null) => {
+  const handleTrackingAction = async (action, needsComment = false) => {
     if (!selectedGoal) return
 
-    console.log('🎯 Tracking action received:', action, 'needsComment:', needsComment, 'dragDirection:', dragDirection)
+    console.log('🎯 Tracking action received:', action, 'needsComment:', needsComment)
 
-    if (action === 'done_with_photo' && dragDirection === 'up') {
-      // For mobile drag up gesture, trigger file input immediately
+    if (action === 'done_with_photo') {
       console.log('📸 Triggering photo capture')
       fileInputRef.current?.click()
-    } else if (action === 'done_with_photo') {
-      // For other photo triggers, use the photo capture handler
-      console.log('📸 Using photo capture handler')
-      handlePhotoCapture()
     } else {
       const entry = { status: action }
       if (selectedGoal.is_countable || needsComment) {
@@ -473,6 +468,12 @@ const TrackingScreen = ({ onBack }) => {
       console.error('❌ No goal selected for photo capture')
       return
     }
+    
+    // Add iOS Safari specific debugging
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+      console.log('📱 iOS device - triggering file input directly')
+    }
+    
     fileInputRef.current?.click()
   }
 
@@ -749,6 +750,7 @@ const TrackingScreen = ({ onBack }) => {
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        capture="environment"
         onChange={handleFileSelect}
         className="hidden"
       />
