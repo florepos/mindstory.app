@@ -1,6 +1,3 @@
-Here's the fixed version with all missing closing brackets added:
-
-```javascript
 const handlePhotoConfirmClick = () => {
   // Direct call without any delays - this maintains the user gesture chain
   if (fileInputRef.current) {
@@ -44,4 +41,3 @@ const StatsOverlay = ({ entry }) => {
 }
 
 export default TrackingScreen
-```
