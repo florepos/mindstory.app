@@ -911,7 +911,6 @@ const TrackingScreen = ({ onBack }) => {
         <div className="text-center">
           <UnifiedTrackingButton
             onTrackingAction={handleTrackingAction}
-            onPhotoCapture={handlePhotoCapture}
             selectedGoal={selectedGoal}
             disabled={!selectedGoal}
             completionCount={todayCompletions}
