@@ -131,7 +131,7 @@ const CountableTrackingModal = ({
                     </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           )}
 
