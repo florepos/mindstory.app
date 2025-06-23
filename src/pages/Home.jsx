@@ -4,7 +4,7 @@ import TrackButton from '../components/TrackButton'
 import AvatarSetupModal from '../components/AvatarSetupModal'
 import AuthModal from '../components/AuthModal'
 import PublicChallengeFeed from '../components/PublicChallengeFeed'
-import { Brain, Sparkles, Target, TrendingUp, Award, Zap, Star, Heart, Activity, FileText, Shield, LogIn, Loader2, Menu, LogOut, Users, Globe, Camera, CheckCircle } from 'lucide-react'
+import { Brain, Sparkles, Target, TrendingUp, Award, Zap, Star, Heart, Activity, FileText, Shield, LogIn, Loader2, Menu, LogOut, Users, Globe, Camera, CheckCircle, ArrowRight, ChevronLeft, ChevronRight, Eye, Lightbulb, Compass, Palette, Mail } from 'lucide-react'
 import { supabase } from '../services/supabaseClient'
 
 const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatenschutz, user, loading }) => {
@@ -16,6 +16,9 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
   const [showBurgerMenu, setShowBurgerMenu] = useState(false)
   const [publicGoals, setPublicGoals] = useState([])
   const [recentEntries, setRecentEntries] = useState([])
+  const [publicGoalsFilter, setPublicGoalsFilter] = useState('recent')
+  const [earlyAccessEmail, setEarlyAccessEmail] = useState('')
+  const [emailSubmitted, setEmailSubmitted] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -24,6 +27,10 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
     fetchPublicGoals()
     fetchRecentEntries()
   }, [user])
+
+  useEffect(() => {
+    fetchPublicGoals()
+  }, [publicGoalsFilter])
 
   const fetchUserProfile = async (userId) => {
     try {
@@ -38,7 +45,6 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
       }
 
       if (!data) {
-        // No profile exists, show avatar setup
         setShowAvatarSetup(true)
       } else {
         setUserProfile(data)
@@ -50,12 +56,30 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
 
   const fetchPublicGoals = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('goals')
         .select('*')
         .eq('privacy_level', 'public_challenge')
-        .order('created_at', { ascending: false })
         .limit(6)
+
+      // Apply filter
+      switch (publicGoalsFilter) {
+        case 'recent':
+          query = query.order('created_at', { ascending: false })
+          break
+        case 'popular':
+          // For now, we'll use created_at as a proxy for popularity
+          query = query.order('created_at', { ascending: false })
+          break
+        case 'theme':
+          // Could be extended to filter by categories/themes
+          query = query.order('name', { ascending: true })
+          break
+        default:
+          query = query.order('created_at', { ascending: false })
+      }
+
+      const { data, error } = await query
 
       if (error) throw error
       setPublicGoals(data || [])
@@ -66,7 +90,6 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
 
   const fetchRecentEntries = async () => {
     try {
-      // First, fetch goal entries with their associated goals
       const { data: entriesData, error: entriesError } = await supabase
         .from('goal_entries')
         .select(`
@@ -84,7 +107,6 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
 
       if (entriesError) throw entriesError
 
-      // Filter for public entries only
       const publicEntries = (entriesData || []).filter(entry => 
         entry.goals && entry.goals.privacy_level === 'public_challenge'
       )
@@ -94,10 +116,8 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
         return
       }
 
-      // Extract unique user IDs from the entries
       const userIds = [...new Set(publicEntries.map(entry => entry.user_id))]
 
-      // Fetch profiles for these users
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('user_id, display_name, avatar_url')
@@ -105,13 +125,11 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
 
       if (profilesError) throw profilesError
 
-      // Create a map of user_id to profile for easy lookup
       const profilesMap = (profilesData || []).reduce((acc, profile) => {
         acc[profile.user_id] = profile
         return acc
       }, {})
 
-      // Merge profiles data into entries
       const entriesWithProfiles = publicEntries.map(entry => ({
         ...entry,
         profiles: profilesMap[entry.user_id] || null
@@ -134,7 +152,6 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
 
   const handleAvatarSetupSkip = () => {
     setShowAvatarSetup(false)
-    // Fetch the profile that was created during skip
     if (user) {
       fetchUserProfile(user.id)
     }
@@ -198,6 +215,20 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
     if (action) action()
   }
 
+  const handleEarlyAccessSubmit = async (e) => {
+    e.preventDefault()
+    if (!earlyAccessEmail.trim()) return
+
+    // Here you would typically save to a database or send to an email service
+    // For now, we'll just show success feedback
+    setEmailSubmitted(true)
+    setEarlyAccessEmail('')
+    
+    setTimeout(() => {
+      setEmailSubmitted(false)
+    }, 3000)
+  }
+
   const formatDate = (dateString) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -241,8 +272,8 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
           <div className="flex items-center justify-between h-16 sm:h-20">
             <div className="flex items-center space-x-2 sm:space-x-4">
               <div className="relative">
-                <div className="p-2 sm:p-3 bg-gradient-to-br from-primary-500 via-primary-600 to-secondary-500 rounded-xl sm:rounded-2xl shadow-premium pulse-glow">
-                  <Brain className="w-5 sm:w-8 h-5 sm:h-8 text-white" />
+                <div className="p-2 sm:p-3 bg-gradient-to-br from-primary-500 via-primary-600 to-secondary-500 rounded-xl sm:rounded-2xl shadow-premium">
+                  <Heart className="w-5 sm:w-8 h-5 sm:h-8 text-white animate-pulse-soft" />
                 </div>
                 <div className="absolute -top-1 -right-1 w-2 sm:w-3 h-2 sm:h-3 bg-gradient-to-r from-success-400 to-success-500 rounded-full animate-pulse"></div>
               </div>
@@ -250,7 +281,7 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
                 <h1 className="text-lg sm:text-3xl font-bold gradient-text-premium">
                   MindStory
                 </h1>
-                <p className="text-xs text-gray-600 font-medium hidden sm:block">Transform your dreams into reality</p>
+                <p className="text-xs text-gray-600 font-medium hidden sm:block">Your journey to authentic living</p>
               </div>
             </div>
             
@@ -342,93 +373,150 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
         />
       )}
 
-      {/* Hero Section */}
-      <section className="relative py-16 sm:py-24 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      {/* 1. HERO SECTION */}
+      <section className="relative py-20 sm:py-32 lg:py-40 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
           <div className="animate-in">
-            <h2 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-gray-800 mb-6 sm:mb-8 text-balance leading-tight">
-              Welcome to 
-              <span className="gradient-text-premium block sm:inline sm:ml-4">MindStory</span>
-              <span className="inline-block ml-2 sm:ml-3 text-5xl sm:text-7xl animate-bounce-gentle">✨</span>
-            </h2>
-            <p className="text-gray-600 text-lg sm:text-2xl max-w-4xl mx-auto leading-relaxed text-balance mb-8 sm:mb-12 px-4">
-              Transform your dreams into reality with our premium wellness and goal tracking platform. 
-              Join thousands who are already living their best life.
-            </p>
-            
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-6 mb-12">
-              {!user ? (
-                <>
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="btn-premium text-lg px-8 py-4 w-full sm:w-auto"
-                  >
-                    Start Your Journey
-                  </button>
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="btn-secondary-premium text-lg px-8 py-4 w-full sm:w-auto"
-                  >
-                    Sign In
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={onNavigateToTracking}
-                  className="btn-premium text-lg px-8 py-4 w-full sm:w-auto"
-                >
-                  Continue Your Journey
-                </button>
-              )}
+            {/* Animated Heart/Brain Icon */}
+            <div className="mb-8 sm:mb-12">
+              <div className="relative inline-block">
+                <div className="p-6 sm:p-8 bg-gradient-to-br from-primary-500 via-secondary-500 to-primary-600 rounded-full shadow-premium-xl animate-pulse-soft">
+                  <div className="relative">
+                    <Heart className="w-12 sm:w-16 h-12 sm:h-16 text-white animate-pulse-soft" />
+                    <Brain className="w-8 sm:w-10 h-8 sm:h-10 text-white/80 absolute -top-1 -right-1 animate-float" />
+                  </div>
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-primary-400 to-secondary-400 rounded-full blur-xl opacity-30 animate-pulse-glow"></div>
+              </div>
             </div>
 
-            {/* Feature Highlights */}
-            <div className="inline-flex items-center space-x-2 sm:space-x-3 glass-card px-4 sm:px-6 py-2 sm:py-3 animate-fade-in-delayed">
-              <Heart className="w-4 sm:w-5 h-4 sm:h-5 text-rose-500 animate-pulse-soft" />
-              <span className="text-xs sm:text-sm font-medium text-gray-700">Join 10,000+ users achieving their goals</span>
-              <Star className="w-4 sm:w-5 h-4 sm:h-5 text-amber-500 animate-pulse-soft" />
+            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-gray-800 mb-6 sm:mb-8 text-balance leading-tight">
+              You know there's more.
+              <span className="block gradient-text-premium mt-2">Start walking your real path</span>
+              <span className="text-3xl sm:text-5xl lg:text-6xl block mt-2">– today.</span>
+            </h1>
+            
+            <p className="text-gray-600 text-xl sm:text-2xl lg:text-3xl max-w-5xl mx-auto leading-relaxed text-balance mb-12 sm:mb-16 px-4">
+              MindStory helps you connect with what truly matters – and take aligned action. 
+              <span className="block mt-2 font-medium">Day by day. With heart and mind.</span>
+            </p>
+            
+            {/* CTA Button */}
+            <div className="mb-8 sm:mb-12">
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="btn-premium text-xl sm:text-2xl px-12 sm:px-16 py-6 sm:py-8 rounded-2xl sm:rounded-3xl shadow-premium-xl hover:shadow-glow-premium transform hover:scale-105 transition-all duration-500 group"
+              >
+                <span className="flex items-center space-x-3">
+                  <span>Start My Journey</span>
+                  <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-300" />
+                </span>
+              </button>
+            </div>
+
+            {/* Tagline */}
+            <div className="glass-card px-8 sm:px-12 py-6 sm:py-8 inline-block animate-fade-in-delayed">
+              <p className="text-lg sm:text-xl text-gray-700 font-medium italic">
+                "We are the stories we tell ourselves. MindStory helps you rewrite yours."
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16 sm:space-y-24">
-        
-        {/* User Goals Section (if logged in) */}
-        {user && (
-          <section className="animate-slide-up">
-            <GoalSlider 
-              selectedGoalId={selectedGoalId}
-              onGoalSelect={handleGoalSelect}
-              refreshTrigger={refreshGoals}
-            />
-          </section>
-        )}
+      {/* 2. FEATURE TEASER SECTION */}
+      <section className="py-20 sm:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16 sm:mb-24">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold gradient-text-premium mb-6">
+              Dream it. Do it. Share it.
+            </h2>
+          </div>
 
-        {/* Tracking Section (if logged in) */}
-        {user && (
-          <section className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <TrackButton 
-              selectedGoalId={selectedGoalId}
-              onTrack={handleTrackGoal} 
-            />
-          </section>
-        )}
-
-        {/* Public Challenges Section */}
-        <section className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
-          <div className="text-center mb-12">
-            <div className="flex items-center justify-center mb-6">
-              <div className="p-4 bg-gradient-to-br from-secondary-500 via-secondary-600 to-primary-500 rounded-3xl shadow-premium">
-                <Globe className="w-8 h-8 text-white" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
+            {/* Feature 1 */}
+            <div className="premium-card premium-card-hover p-8 sm:p-12 text-center group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="p-6 sm:p-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-3xl w-20 sm:w-24 h-20 sm:h-24 mx-auto mb-8 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-premium">
+                  <Compass className="w-10 sm:w-12 h-10 sm:h-12 text-white" />
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Discover your true goals</h3>
+                <p className="text-lg sm:text-xl text-gray-600 leading-relaxed mb-8">
+                  Uncover what really drives you.
+                </p>
+                <button className="btn-secondary-premium group-hover:shadow-premium-lg transition-all duration-300">
+                  Explore Now
+                </button>
               </div>
             </div>
-            <h3 className="text-3xl sm:text-4xl font-bold gradient-text-premium mb-4">Public Challenges</h3>
-            <p className="text-gray-600 text-lg sm:text-xl max-w-2xl mx-auto">
-              Join the community and achieve your goals together with others
-            </p>
+
+            {/* Feature 2 */}
+            <div className="premium-card premium-card-hover p-8 sm:p-12 text-center group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="p-6 sm:p-8 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-3xl w-20 sm:w-24 h-20 sm:h-24 mx-auto mb-8 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-premium">
+                  <Camera className="w-10 sm:w-12 h-10 sm:h-12 text-white" />
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Track your journey effortlessly</h3>
+                <p className="text-lg sm:text-xl text-gray-600 leading-relaxed mb-8">
+                  Photos, notes, swipes – just tap and grow.
+                </p>
+                <button className="btn-secondary-premium group-hover:shadow-premium-lg transition-all duration-300">
+                  Start Tracking
+                </button>
+              </div>
+            </div>
+
+            {/* Feature 3 */}
+            <div className="premium-card premium-card-hover p-8 sm:p-12 text-center group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-success-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="relative z-10">
+                <div className="p-6 sm:p-8 bg-gradient-to-br from-success-500 to-success-600 rounded-3xl w-20 sm:w-24 h-20 sm:h-24 mx-auto mb-8 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-premium">
+                  <Users className="w-10 sm:w-12 h-10 sm:h-12 text-white" />
+                </div>
+                <h3 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6">Move forward together</h3>
+                <p className="text-lg sm:text-xl text-gray-600 leading-relaxed mb-8">
+                  Join challenges, support each other.
+                </p>
+                <button className="btn-secondary-premium group-hover:shadow-premium-lg transition-all duration-300">
+                  Join Community
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. PUBLIC GOALS FEED */}
+      <section className="py-20 sm:py-32 bg-white/40 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12 sm:mb-16">
+            <div className="flex items-center justify-center mb-8">
+              <div className="p-4 sm:p-6 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-3xl shadow-premium">
+                <Globe className="w-8 sm:w-10 h-8 sm:h-10 text-white" />
+              </div>
+            </div>
+            <h2 className="text-4xl sm:text-5xl font-bold gradient-text-premium mb-6">
+              Explore the public goals
+            </h2>
+            
+            {/* Filter Options */}
+            <div className="flex items-center justify-center space-x-4 mb-12">
+              {['recent', 'popular', 'theme'].map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setPublicGoalsFilter(filter)}
+                  className={`px-6 py-3 rounded-full text-sm font-medium transition-all duration-300 capitalize ${
+                    publicGoalsFilter === filter
+                      ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-premium'
+                      : 'bg-white/60 text-gray-700 hover:bg-white/80 hover:shadow-premium'
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
           </div>
 
           {publicGoals.length > 0 ? (
@@ -440,11 +528,11 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-primary-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   <div className="relative z-10">
-                    <div className="text-4xl sm:text-5xl mb-4 group-hover:scale-110 transition-transform duration-500">
+                    <div className="text-4xl sm:text-5xl mb-6 group-hover:scale-110 transition-transform duration-500">
                       {goal.symbol || '🎯'}
                     </div>
-                    <h4 className="text-xl font-bold text-gray-800 mb-3">{goal.name}</h4>
-                    <p className="text-gray-600 mb-4 line-clamp-2">{goal.description}</p>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-4">{goal.name}</h3>
+                    <p className="text-gray-600 mb-6 line-clamp-2">{goal.description}</p>
                     <div className="flex items-center justify-center space-x-4 text-sm text-gray-500 mb-6">
                       <div className="flex items-center space-x-1">
                         <Users className="w-4 h-4" />
@@ -457,9 +545,14 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
                         </div>
                       )}
                     </div>
-                    <button className="btn-secondary-premium w-full">
-                      View Challenge
-                    </button>
+                    <div className="space-y-3">
+                      <button className="btn-premium w-full">
+                        Join this challenge
+                      </button>
+                      <button className="btn-secondary-premium w-full">
+                        Start something similar
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -467,180 +560,162 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
           ) : (
             <div className="text-center py-16">
               <Globe className="w-16 h-16 mx-auto mb-6 text-gray-300" />
-              <p className="text-xl font-semibold text-gray-500 mb-2">No public challenges yet</p>
-              <p className="text-gray-400">Be the first to create a public challenge!</p>
+              <p className="text-xl font-semibold text-gray-500 mb-2">No public goals yet – be the first!</p>
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="btn-premium mt-6"
+              >
+                Create First Public Goal
+              </button>
             </div>
           )}
-        </section>
+        </div>
+      </section>
 
-        {/* Recent Community Activity */}
-        <section className="animate-slide-up" style={{ animationDelay: '0.6s' }}>
-          <div className="text-center mb-12">
-            <div className="flex items-center justify-center mb-6">
-              <div className="p-4 bg-gradient-to-br from-success-500 via-success-600 to-primary-500 rounded-3xl shadow-premium">
-                <Activity className="w-8 h-8 text-white" />
-              </div>
-            </div>
-            <h3 className="text-3xl sm:text-4xl font-bold gradient-text-premium mb-4">Community Activity</h3>
-            <p className="text-gray-600 text-lg sm:text-xl max-w-2xl mx-auto">
-              See what others are achieving and get inspired
+      {/* 4. UPCOMING FEATURES TEASER */}
+      <section className="py-20 sm:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16 sm:mb-20">
+            <h2 className="text-4xl sm:text-5xl font-bold gradient-text-premium mb-6">
+              What if you could go deeper?
+            </h2>
+            <p className="text-xl sm:text-2xl text-gray-600 max-w-3xl mx-auto">
+              MindStory will soon help you unlock your inner story even more.
             </p>
           </div>
 
-          {recentEntries.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-              {recentEntries.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="glass-card p-4 sm:p-6 rounded-2xl hover:shadow-premium-lg transition-all duration-300 group"
-                >
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="text-2xl">{entry.goals?.symbol || '🎯'}</div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-gray-800 truncate">{entry.goals?.name}</h4>
-                      <p className="text-sm text-gray-600">{formatDate(entry.completed_at)}</p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      {entry.status === 'done_with_photo' ? (
-                        <Camera className="w-5 h-5 text-primary-600" />
-                      ) : (
-                        <CheckCircle className="w-5 h-5 text-success-600" />
-                      )}
-                    </div>
-                  </div>
-                  
-                  {entry.photo_url && (
-                    <img
-                      src={entry.photo_url}
-                      alt="Progress"
-                      className="w-full h-32 object-cover rounded-lg mb-3"
-                    />
-                  )}
-                  
-                  <div className="flex items-center space-x-2 text-xs text-gray-500">
-                    {entry.profiles?.avatar_url ? (
-                      <img
-                        src={entry.profiles.avatar_url}
-                        alt={entry.profiles.display_name}
-                        className="w-6 h-6 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-6 h-6 bg-gray-300 rounded-full flex items-center justify-center">
-                        <span className="text-xs font-medium">A</span>
-                      </div>
-                    )}
-                    <span>{entry.profiles?.display_name || 'Anonymous User'}</span>
-                  </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 mb-16">
+            {/* Feature 1 */}
+            <div className="glass-card p-8 sm:p-10 rounded-2xl sm:rounded-3xl hover:shadow-premium-lg transition-all duration-300 group">
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="p-4 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                  <Heart className="w-8 h-8 text-white" />
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16">
-              <Activity className="w-16 h-16 mx-auto mb-6 text-gray-300" />
-              <p className="text-xl font-semibold text-gray-500 mb-2">No recent activity</p>
-              <p className="text-gray-400">Start tracking goals to see community activity!</p>
-            </div>
-          )}
-        </section>
-
-        {/* Stats Section */}
-        <section className="animate-slide-up" style={{ animationDelay: '0.8s' }}>
-          <div className="text-center mb-12">
-            <h3 className="text-3xl sm:text-4xl font-bold gradient-text-premium mb-4">Your Progress</h3>
-            <p className="text-gray-600 text-lg sm:text-xl">Track your journey to success</p>
-          </div>
-          
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-            <div className="premium-card premium-card-hover p-6 sm:p-8 text-center group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <div className="relative z-10">
-                <div className="p-4 sm:p-5 bg-gradient-to-br from-primary-500 to-primary-600 rounded-2xl sm:rounded-3xl w-16 sm:w-20 h-16 sm:h-20 mx-auto mb-4 sm:mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-premium">
-                  <Target className="w-8 sm:w-10 h-8 sm:h-10 text-white" />
-                </div>
-                <div className="text-3xl sm:text-5xl font-bold gradient-text-premium mb-2 sm:mb-4">
-                  {user ? '12' : '0'}
-                </div>
-                <div className="text-gray-600 font-semibold mb-2 sm:mb-4 text-sm sm:text-lg">Active Goals</div>
-                <div className="w-full bg-primary-100 rounded-full h-2 sm:h-3 overflow-hidden">
-                  <div className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 sm:h-3 rounded-full w-3/4 transition-all duration-1000 shadow-inner-premium"></div>
-                </div>
+                <h3 className="text-2xl font-bold text-gray-800">Find your values</h3>
               </div>
+              <p className="text-gray-600 text-lg leading-relaxed">
+                Discover what truly matters to you through guided reflection and value-based goal setting.
+              </p>
             </div>
 
-            <div className="premium-card premium-card-hover p-6 sm:p-8 text-center group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-success-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <div className="relative z-10">
-                <div className="p-4 sm:p-5 bg-gradient-to-br from-success-500 to-success-600 rounded-2xl sm:rounded-3xl w-16 sm:w-20 h-16 sm:h-20 mx-auto mb-4 sm:mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-premium">
-                  <Award className="w-8 sm:w-10 h-8 sm:h-10 text-white" />
+            {/* Feature 2 */}
+            <div className="glass-card p-8 sm:p-10 rounded-2xl sm:rounded-3xl hover:shadow-premium-lg transition-all duration-300 group">
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="p-4 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                  <Lightbulb className="w-8 h-8 text-white" />
                 </div>
-                <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-success-600 to-success-700 bg-clip-text text-transparent mb-2 sm:mb-4">
-                  {user ? '8' : '0'}
-                </div>
-                <div className="text-gray-600 font-semibold mb-2 sm:mb-4 text-sm sm:text-lg">Completed</div>
-                <div className="w-full bg-success-100 rounded-full h-2 sm:h-3 overflow-hidden">
-                  <div className="bg-gradient-to-r from-success-500 to-success-600 h-2 sm:h-3 rounded-full w-4/5 transition-all duration-1000 shadow-inner-premium"></div>
-                </div>
+                <h3 className="text-2xl font-bold text-gray-800">Overcome limiting beliefs</h3>
               </div>
+              <p className="text-gray-600 text-lg leading-relaxed">
+                Identify and transform the stories that hold you back from reaching your full potential.
+              </p>
             </div>
 
-            <div className="premium-card premium-card-hover p-6 sm:p-8 text-center group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-secondary-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <div className="relative z-10">
-                <div className="p-4 sm:p-5 bg-gradient-to-br from-secondary-500 to-secondary-600 rounded-2xl sm:rounded-3xl w-16 sm:w-20 h-16 sm:h-20 mx-auto mb-4 sm:mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-premium">
-                  <TrendingUp className="w-8 sm:w-10 h-8 sm:h-10 text-white" />
+            {/* Feature 3 */}
+            <div className="glass-card p-8 sm:p-10 rounded-2xl sm:rounded-3xl hover:shadow-premium-lg transition-all duration-300 group">
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="p-4 bg-gradient-to-br from-success-500 to-success-600 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                  <Star className="w-8 h-8 text-white" />
                 </div>
-                <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-secondary-600 to-secondary-700 bg-clip-text text-transparent mb-2 sm:mb-4">
-                  {user ? '67%' : '0%'}
-                </div>
-                <div className="text-gray-600 font-semibold mb-2 sm:mb-4 text-sm sm:text-lg">Success Rate</div>
-                <div className="w-full bg-secondary-100 rounded-full h-2 sm:h-3 overflow-hidden">
-                  <div className="bg-gradient-to-r from-secondary-500 to-secondary-600 h-2 sm:h-3 rounded-full w-2/3 transition-all duration-1000 shadow-inner-premium"></div>
-                </div>
+                <h3 className="text-2xl font-bold text-gray-800">Define your motto goals</h3>
               </div>
+              <p className="text-gray-600 text-lg leading-relaxed">
+                Create powerful personal mantras that guide your daily actions and long-term vision.
+              </p>
             </div>
 
-            <div className="premium-card premium-card-hover p-6 sm:p-8 text-center group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-warning-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <div className="relative z-10">
-                <div className="p-4 sm:p-5 bg-gradient-to-br from-warning-500 to-error-500 rounded-2xl sm:rounded-3xl w-16 sm:w-20 h-16 sm:h-20 mx-auto mb-4 sm:mb-6 flex items-center justify-center group-hover:scale-110 transition-transform duration-500 shadow-premium">
-                  <Zap className="w-8 sm:w-10 h-8 sm:h-10 text-white" />
+            {/* Feature 4 */}
+            <div className="glass-card p-8 sm:p-10 rounded-2xl sm:rounded-3xl hover:shadow-premium-lg transition-all duration-300 group">
+              <div className="flex items-center space-x-4 mb-6">
+                <div className="p-4 bg-gradient-to-br from-warning-500 to-error-500 rounded-2xl group-hover:scale-110 transition-transform duration-300">
+                  <Eye className="w-8 h-8 text-white" />
                 </div>
-                <div className="text-3xl sm:text-5xl font-bold bg-gradient-to-r from-warning-600 to-error-600 bg-clip-text text-transparent mb-2 sm:mb-4">
-                  {user ? '24' : '0'}
-                </div>
-                <div className="text-gray-600 font-semibold mb-2 sm:mb-4 text-sm sm:text-lg">Day Streak</div>
-                <div className="w-full bg-warning-100 rounded-full h-2 sm:h-3 overflow-hidden">
-                  <div className="bg-gradient-to-r from-warning-500 to-error-500 h-2 sm:h-3 rounded-full w-full transition-all duration-1000 shadow-inner-premium"></div>
-                </div>
+                <h3 className="text-2xl font-bold text-gray-800">Visualize your dreams</h3>
               </div>
+              <p className="text-gray-600 text-lg leading-relaxed">
+                Use powerful visualization techniques to manifest your goals and create your ideal future.
+              </p>
             </div>
           </div>
-        </section>
 
-        {/* Inspirational Footer */}
-        <section className="text-center py-16 sm:py-24 animate-fade-in-delayed">
-          <div className="glass-card p-8 sm:p-12 max-w-4xl mx-auto">
-            <Sparkles className="w-12 sm:w-16 h-12 sm:h-16 text-amber-500 mx-auto mb-6 sm:mb-8 animate-pulse-soft" />
-            <h3 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-4 sm:mb-6">
-              "The journey of a thousand miles begins with one step."
-            </h3>
-            <p className="text-gray-600 text-lg sm:text-xl leading-relaxed">
-              Every goal you set, every step you take, brings you closer to the life you envision. 
-              Start your transformation today.
+          {/* Early Access Form */}
+          <div className="premium-card p-8 sm:p-12 text-center max-w-2xl mx-auto">
+            <h3 className="text-2xl sm:text-3xl font-bold gradient-text-premium mb-6">Get early access</h3>
+            <p className="text-gray-600 text-lg mb-8">
+              Be the first to experience these powerful new features when they launch.
             </p>
-            {!user && (
-              <div className="mt-8">
+            
+            {emailSubmitted ? (
+              <div className="p-6 bg-gradient-to-r from-success-50 to-success-100 rounded-2xl border border-success-200">
+                <div className="flex items-center justify-center space-x-3 mb-4">
+                  <CheckCircle className="w-8 h-8 text-success-600" />
+                  <span className="text-2xl font-bold text-success-800">Thank you!</span>
+                </div>
+                <p className="text-success-700 text-lg">
+                  We'll notify you when these features are ready.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleEarlyAccessSubmit} className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                <input
+                  type="email"
+                  value={earlyAccessEmail}
+                  onChange={(e) => setEarlyAccessEmail(e.target.value)}
+                  placeholder="Enter your email address"
+                  className="input-premium flex-1 text-lg"
+                  required
+                />
                 <button
-                  onClick={() => setShowAuthModal(true)}
-                  className="btn-premium text-lg px-8 py-4"
+                  type="submit"
+                  className="btn-premium flex items-center justify-center space-x-2 px-8"
                 >
-                  Begin Your Journey
+                  <Mail className="w-5 h-5" />
+                  <span>Get Early Access</span>
                 </button>
-              </div>
+              </form>
             )}
           </div>
-        </section>
-      </main>
+        </div>
+      </section>
+
+      {/* 5. FINAL CTA SECTION */}
+      <section className="py-20 sm:py-32 bg-gradient-to-br from-primary-50 via-secondary-50/50 to-primary-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="premium-card p-12 sm:p-16 max-w-5xl mx-auto">
+            <div className="mb-8 sm:mb-12">
+              <div className="p-6 sm:p-8 bg-gradient-to-br from-primary-500 via-secondary-500 to-primary-600 rounded-full w-24 sm:w-32 h-24 sm:h-32 mx-auto mb-8 flex items-center justify-center shadow-premium-xl">
+                <Sparkles className="w-12 sm:w-16 h-12 sm:h-16 text-white animate-pulse-soft" />
+              </div>
+            </div>
+
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-800 mb-8 text-balance">
+              It's your story.
+              <span className="block gradient-text-premium mt-2">Start writing the next chapter.</span>
+            </h2>
+            
+            <p className="text-xl sm:text-2xl text-gray-600 mb-12 sm:mb-16 leading-relaxed max-w-3xl mx-auto">
+              We are the stories we tell ourselves. And we are the authors of what's to come.
+            </p>
+            
+            <div className="mb-8 sm:mb-12">
+              <button
+                onClick={() => setShowAuthModal(true)}
+                className="btn-premium text-xl sm:text-2xl px-12 sm:px-16 py-6 sm:py-8 rounded-2xl sm:rounded-3xl shadow-premium-xl hover:shadow-glow-premium transform hover:scale-105 transition-all duration-500 group"
+              >
+                <span className="flex items-center space-x-3">
+                  <span>Begin your MindStory</span>
+                  <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform duration-300" />
+                  <span>Join now</span>
+                </span>
+              </button>
+            </div>
+
+            <p className="text-lg text-gray-500 font-medium">
+              Psychology-based. Science-backed. Human at heart.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="bg-white/60 backdrop-blur-xl border-t border-white/30 mt-16">
@@ -649,12 +724,12 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
             <div className="lg:col-span-2">
               <div className="flex items-center space-x-3 mb-6">
                 <div className="p-3 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-xl">
-                  <Brain className="w-6 h-6 text-white" />
+                  <Heart className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-2xl font-bold gradient-text-premium">MindStory</h3>
               </div>
               <p className="text-gray-600 text-base sm:text-lg leading-relaxed max-w-md mb-6">
-                Transform your dreams into reality with our premium wellness and goal tracking platform.
+                Connect with what truly matters and take aligned action. Day by day. With heart and mind.
               </p>
               <div className="flex items-center space-x-4">
                 <div className="glass-card rounded-full px-4 py-2">
@@ -697,7 +772,7 @@ const Home = ({ onNavigateToTracking, onNavigateToImpressum, onNavigateToDatensc
               <div className="space-y-3 text-base text-gray-600">
                 <p>support@mindstory.app</p>
                 <p>© 2024 MindStory</p>
-                <p className="text-sm">Made with ❤️ for your success</p>
+                <p className="text-sm">Made with ❤️ for your authentic journey</p>
               </div>
             </div>
           </div>
