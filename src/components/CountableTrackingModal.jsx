@@ -78,7 +78,7 @@ const CountableTrackingModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center z-50 p-4">
-      <div className="premium-card max-w-lg w-full p-6 sm:p-8 animate-scale-in">
+      <div className="premium-card max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 animate-scale-in">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
             <div className={`p-3 bg-gradient-to-br ${getActionColor()} rounded-xl`}>
@@ -100,17 +100,37 @@ const CountableTrackingModal = ({
         <div className="space-y-6">
           {/* Photo Preview */}
           {photoPreviewUrl && (
-            <div className="relative">
+            <div className="relative mb-6">
               <img
                 src={photoPreviewUrl}
                 alt="preview"
-                className="w-full h-60 object-cover rounded-xl"
+                className="w-full h-60 object-cover rounded-xl shadow-premium"
               />
+              
+              {/* Stats Overlay */}
+              <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+                <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm font-medium">
+                  {goal?.is_countable && quantity > 1 ? (
+                    <span>{quantity} {goal.target_unit || 'units'}</span>
+                  ) : (
+                    <span>1 completion</span>
+                  )}
+                </div>
+                <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm font-medium">
+                  {new Date().toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                  })}
+                </div>
+              </div>
+              
+              {/* Comment Overlay */}
               {comment && (
-                <div className="absolute inset-0 flex items-end justify-center p-4">
-                  <span className="bg-black/60 text-white px-2 py-1 rounded text-lg font-semibold">
-                    {comment}
-                  </span>
+                <div className="absolute bottom-3 left-3 right-3">
+                  <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg">
+                    <span className="text-sm font-medium">{comment}</span>
+                  </div>
                 </div>
               )}
             </div>
