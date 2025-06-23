@@ -348,6 +348,10 @@ const TrackingScreen = ({ onBack }) => {
 
     console.log('📁 File selected:', file.name, file.type, file.size)
 
+    // Add iOS Safari specific handling
+    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+      console.log('📱 iOS device detected - using optimized flow')
+    }
     setSelectedPhotoFile(file)
     setPhotoPreviewUrl(URL.createObjectURL(file))
     setPendingEntry({ status: 'done_with_photo' })
@@ -436,14 +440,19 @@ const TrackingScreen = ({ onBack }) => {
   }
 
   // Handle unified tracking button actions
-  const handleTrackingAction = async (action, needsComment = false) => {
+  const handleTrackingAction = async (action, needsComment = false, dragDirection = null) => {
     if (!selectedGoal) return
 
-    console.log('🎯 Tracking action received:', action, 'needsComment:', needsComment)
+    console.log('🎯 Tracking action received:', action, 'needsComment:', needsComment, 'dragDirection:', dragDirection)
 
-    if (action === 'done_with_photo') {
+    if (action === 'done_with_photo' && dragDirection === 'up') {
+      // For mobile drag up gesture, trigger file input immediately
       console.log('📸 Triggering photo capture')
       fileInputRef.current?.click()
+    } else if (action === 'done_with_photo') {
+      // For other photo triggers, use the photo capture handler
+      console.log('📸 Using photo capture handler')
+      handlePhotoCapture()
     } else {
       const entry = { status: action }
       if (selectedGoal.is_countable || needsComment) {

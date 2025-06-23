@@ -288,16 +288,10 @@ const UnifiedTrackingButton = ({
         console.log('⬅️ Left drag: Not done')
         break
       case 'up':
-        // For up drag, trigger photo capture directly
-        console.log('📸 Up drag: Triggering photo capture')
-        if (onPhotoCapture) {
-          onPhotoCapture()
-        } else {
-          // Fallback to done_with_photo action
-          onTrackingAction('done_with_photo', false)
-        }
-        resetButton()
-        return
+        // For iPhone Safari compatibility, we need to trigger file input in the same gesture
+        console.log('📸 Up drag: Triggering photo capture for mobile')
+        action = 'done_with_photo'
+        break
       default:
         action = 'done'
         requiresComment = true
@@ -311,8 +305,13 @@ const UnifiedTrackingButton = ({
       rotate: 720,
       glow: 2.5,
       onRest: () => {
-        console.log('🚀 Calling onTrackingAction with:', action, requiresComment)
-        onTrackingAction(action, requiresComment)
+        console.log('🚀 Calling onTrackingAction with:', action, requiresComment, direction)
+        // For photo actions, pass the direction to indicate it's from drag
+        if (action === 'done_with_photo') {
+          onTrackingAction(action, requiresComment, direction)
+        } else {
+          onTrackingAction(action, requiresComment)
+        }
         setTimeout(resetButton, 300)
       }
     })
@@ -396,18 +395,10 @@ const UnifiedTrackingButton = ({
   useEffect(() => {
     if (isPressed) {
       const handleGlobalMove = (e) => {
-        // Prevent default for touch events to avoid scrolling
-        if (e.type.startsWith('touch')) {
-          e.preventDefault()
-        }
         handleMove(e)
       }
 
       const handleGlobalEnd = (e) => {
-        // Prevent default for touch events
-        if (e.type.startsWith('touch')) {
-          e.preventDefault()
-        }
         handleEnd(e)
       }
 
@@ -573,10 +564,7 @@ const UnifiedTrackingButton = ({
         // Pointer Events (modern browsers)
         onPointerDown={handleStart}
         // Touch Events (mobile)
-        onTouchStart={(e) => {
-          e.preventDefault()
-          handleStart(e)
-        }}
+        onTouchStart={handleStart}
         // Mouse Events (desktop fallback)
         onMouseDown={handleStart}
         onContextMenu={(e) => e.preventDefault()}
