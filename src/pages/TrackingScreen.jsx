@@ -348,10 +348,6 @@ const TrackingScreen = ({ onBack }) => {
 
     console.log('📁 File selected:', file.name, file.type, file.size)
 
-    // Add iOS Safari specific handling
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-      console.log('📱 iOS device detected - using optimized flow')
-    }
     setSelectedPhotoFile(file)
     setPhotoPreviewUrl(URL.createObjectURL(file))
     setPendingEntry({ status: 'done_with_photo' })
@@ -464,17 +460,31 @@ const TrackingScreen = ({ onBack }) => {
   // Handle photo capture from unified button
   const handlePhotoCapture = () => {
     console.log('📸 Photo capture triggered from unified button')
-    if (!selectedGoal) {
-      console.error('❌ No goal selected for photo capture')
-      return
+    
+    // Create a new file input for iOS Safari compatibility
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = 'image/*'
+    input.capture = 'environment'
+    input.style.position = 'absolute'
+    input.style.left = '-9999px'
+    input.style.top = '-9999px'
+    input.style.opacity = '0'
+    
+    input.onchange = (e) => {
+      const file = e.target.files?.[0]
+      if (file && selectedGoal) {
+        console.log('📁 File selected via dynamic input:', file.name, file.type, file.size)
+        setSelectedPhotoFile(file)
+        setPhotoPreviewUrl(URL.createObjectURL(file))
+        setPendingEntry({ status: 'done_with_photo' })
+        setShowCountableModal(true)
+      }
+      document.body.removeChild(input)
     }
     
-    // Add iOS Safari specific debugging
-    if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-      console.log('📱 iOS device - triggering file input directly')
-    }
-    
-    fileInputRef.current?.click()
+    document.body.appendChild(input)
+    input.click()
   }
 
   // Burger menu handlers
@@ -750,9 +760,8 @@ const TrackingScreen = ({ onBack }) => {
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelect}
-        className="hidden"
+        className="hidden ios-file-input-fix"
       />
 
       {/* Goal Selection - Updated spacing to -16px (4 units) */}

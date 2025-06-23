@@ -288,19 +288,14 @@ const UnifiedTrackingButton = ({
         console.log('⬅️ Left drag: Not done')
         break
       case 'up':
-        console.log('📸 Up drag: Photo capture')
-        
-        // Handle iOS devices differently to maintain user gesture context
-        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-          console.log('📱 iOS device - direct photo capture')
-          handleIOSPhotoCapture()
-        } else {
-          if (onPhotoCapture) {
-            onPhotoCapture()
-          }
+        if (onPhotoCapture) {
+          console.log('📸 Up drag: Triggering photo capture')
+          onPhotoCapture()
+          resetButton()
+          return
         }
-        resetButton()
-        return
+        action = 'done_with_photo'
+        console.log('📸 Up drag: Done with photo')
         break
       default:
         action = 'done'
