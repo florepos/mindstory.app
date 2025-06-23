@@ -288,12 +288,6 @@ const UnifiedTrackingButton = ({
         console.log('⬅️ Left drag: Not done')
         break
       case 'up':
-        if (onPhotoCapture) {
-          console.log('📸 Up drag: Triggering photo capture')
-          onPhotoCapture()
-          resetButton()
-          return
-        }
         action = 'done_with_photo'
         console.log('📸 Up drag: Done with photo')
         break
@@ -597,7 +591,7 @@ const UnifiedTrackingButton = ({
       </animated.button>
 
       {/* Instructions */}
-      <div className="absolute -bottom-32 sm:-bottom-40 left-1/2 transform -translate-x-1/2 text-center">
+      <div className="absolute -bottom-40 sm:-bottom-40 left-1/2 transform -translate-x-1/2 text-center">
         <div className="space-y-2 sm:space-y-4">
           <p className="text-lg sm:text-xl font-bold text-gray-800">
             {isHolding ? `Hold for ${Math.ceil((holdDuration - holdProgress * holdDuration / 100) / 1000)}s` :
@@ -605,7 +599,7 @@ const UnifiedTrackingButton = ({
              isDragEnabled ? 'Drag for options or release to count' :
              'Hold for 3 seconds'}
           </p>
-          <div className="hidden sm:flex items-center justify-center space-x-6 sm:space-x-8 text-sm text-gray-600">
+          <div className="hidden sm:flex items-center justify-center space-x-6 sm:space-x-8 text-sm text-gray-600 mt-4">
             <div className="flex flex-col items-center space-y-1">
               <div className="w-3 h-3 bg-success-400 rounded-full"></div>
               <span className="font-medium">Right: Comment</span>
@@ -622,10 +616,6 @@ const UnifiedTrackingButton = ({
               <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
               <span className="font-medium">Release: Count</span>
             </div>
-          </div>
-          {/* Mobile-friendly simplified instructions */}
-          <div className="sm:hidden text-sm text-gray-600">
-            <p>Hold 3s • Drag or release to count</p>
           </div>
         </div>
       </div>
