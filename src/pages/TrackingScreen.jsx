@@ -667,11 +667,6 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  // Handle photo confirmation click - direct user gesture
-  const handlePhotoConfirmClick = () => {
-    console.log('📸 Photo confirmation clicked - triggering camera')
-    setShowPhotoConfirmButton(false)
-    
     // Direct call without any delays - this maintains the user gesture chain
     if (fileInputRef.current) {
       fileInputRef.current.click()
@@ -999,7 +994,7 @@ const TrackingScreen = ({ onBack }) => {
               </div>
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold gradient-text-premium">{t.selectGoal}</h2>
-                <p className="text-base sm:text-lg text-gray-600">Choose your focus for today</p>
+                <p className="text-base sm:text-lg text-gray-600">Dream it. Do it.</p>
               </div>
             </div>
             <div className="flex space-x-3 sm:space-x-4">
@@ -1118,7 +1113,6 @@ const TrackingScreen = ({ onBack }) => {
         <div className="text-center">
           <UnifiedTrackingButton
             onTrackingAction={handleTrackingAction}
-            selectedGoal={selectedGoal}
             disabled={!selectedGoal}
             completionCount={todayCompletions}
             className="relative z-30"

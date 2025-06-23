@@ -78,7 +78,7 @@ const CountableTrackingModal = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-xl flex items-center justify-center z-50 p-4">
-      <div className="premium-card max-w-lg w-full p-6 sm:p-8 animate-scale-in">
+      <div className="premium-card max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 animate-scale-in">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
             <div className={`p-3 bg-gradient-to-br ${getActionColor()} rounded-xl`}>
@@ -100,17 +100,36 @@ const CountableTrackingModal = ({
         <div className="space-y-6">
           {/* Photo Preview */}
           {photoPreviewUrl && (
-            <div className="relative">
+            <div className="relative mb-6">
               <img
                 src={photoPreviewUrl}
                 alt="preview"
-                className="w-full h-60 object-cover rounded-xl"
+                className="w-full h-60 object-cover rounded-xl shadow-premium"
               />
-              {comment && (
-                <div className="absolute inset-0 flex items-end justify-center p-4">
-                  <span className="bg-black/60 text-white px-2 py-1 rounded text-lg font-semibold">
-                    {comment}
-                  </span>
+              
+              {/* Photo Overlay with Stats */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent rounded-xl">
+                <div className="absolute bottom-4 left-4 right-4">
+                  {/* Quantity and timestamp */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-white text-sm font-medium bg-black/40 px-2 py-1 rounded">
+                      {goal?.is_countable ? `${quantity} ${goal.target_unit || 'units'}` : 'Completed'}
+                    </div>
+                    <div className="text-white text-xs bg-black/40 px-2 py-1 rounded">
+                      {new Date().toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                        hour12: true
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Comment overlay */}
+                  {comment && (
+                    <div className="text-white text-lg font-semibold bg-black/40 px-3 py-2 rounded backdrop-blur-sm">
+                      {comment}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
