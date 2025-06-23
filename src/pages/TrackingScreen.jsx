@@ -149,6 +149,8 @@ const TrackingScreen = ({ onBack }) => {
             is_countable,
             target_unit,
             total_target,
+            frequency
+            total_target,
             frequency,
             privacy_level
           )
@@ -167,7 +169,55 @@ const TrackingScreen = ({ onBack }) => {
         throw error
       }
 
-      setEntries(data || [])
+      // Calculate completion statistics for each goal
+      const entriesWithStats = await Promise.all((data || []).map(async (entry) => {
+        if (!entry.goals) return entry
+
+        // Get total completions for this goal
+        const { data: totalData, error: totalError } = await supabase
+          .from('goal_entries')
+          .select('quantity')
+          .eq('goal_id', entry.goals.id)
+          .eq('user_id', user.id)
+          .in('status', ['done', 'done_with_photo'])
+
+        if (totalError) {
+          console.error('Error fetching total completions:', totalError)
+          return entry
+        }
+
+        const totalCompletions = totalData.reduce((sum, e) => sum + (e.quantity || 1), 0)
+
+        // Get weekly completions for this goal
+        const startOfWeek = new Date()
+        startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
+        startOfWeek.setHours(0, 0, 0, 0)
+
+        const { data: weeklyData, error: weeklyError } = await supabase
+          .from('goal_entries')
+          .select('quantity')
+          .eq('goal_id', entry.goals.id)
+          .eq('user_id', user.id)
+          .in('status', ['done', 'done_with_photo'])
+          .gte('completed_at', startOfWeek.toISOString())
+
+        if (weeklyError) {
+          console.error('Error fetching weekly completions:', weeklyError)
+          return entry
+        }
+
+        const weeklyCompletions = weeklyData.reduce((sum, e) => sum + (e.quantity || 1), 0)
+
+        return {
+          ...entry,
+          calculatedStats: {
+            totalCompletions,
+            weeklyCompletions
+          }
+        }
+      }))
+
+      setEntries(entriesWithStats)
     } catch (error) {
       console.error('Error fetching entries:', error)
     }
