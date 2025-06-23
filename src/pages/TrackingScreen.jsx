@@ -7,6 +7,7 @@ import EnhancedCreateGoalModal from '../components/EnhancedCreateGoalModal'
 import CountableTrackingModal from '../components/CountableTrackingModal'
 import TrackingEntryContextMenu from '../components/TrackingEntryContextMenu'
 import UnifiedTrackingButton from '../components/UnifiedTrackingButton'
+import TrackingEntryCard from '../components/TrackingEntryCard'
 import { formatDate } from '../utils/date'
 
 const TrackingScreen = ({ onBack }) => {
@@ -238,52 +239,19 @@ const TrackingScreen = ({ onBack }) => {
     }
   }
 
-  // Generate share image for entry
+  // Generate share image for any entry (with or without photo)
   const generateShareImage = async (entry) => {
     const canvas = canvasRef.current
     if (!canvas) return null
 
     const ctx = canvas.getContext('2d')
     canvas.width = 800
-    canvas.height = 600
+    canvas.height = 800 // Square format
 
-    // Create gradient background
-    const gradient = ctx.createLinearGradient(0, 0, 800, 600)
-    gradient.addColorStop(0, '#667eea')
-    gradient.addColorStop(1, '#764ba2')
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, 800, 600)
-
-    // Add goal emoji/symbol
-    ctx.font = 'bold 120px Arial'
-    ctx.textAlign = 'center'
-    ctx.fillStyle = '#ffffff'
-    const emoji = entry.goals?.symbol || '🎯'
-    ctx.fillText(emoji, 400, 180)
-
-    // Add goal title
-    ctx.font = 'bold 48px Arial'
-    ctx.fillStyle = '#ffffff'
-    ctx.fillText(entry.goals?.name || 'Goal', 400, 260)
-
-    // Add status
-    ctx.font = '36px Arial'
-    ctx.fillStyle = '#e2e8f0'
-    ctx.fillText(getStatusText(entry.status), 400, 320)
-
-    // Add date and time
-    ctx.font = '28px Arial'
-    const date = formatDate(entry.completed_at)
-    const time = new Date(entry.completed_at).toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    })
-    ctx.fillText(`${date} • ${time}`, 400, 370)
-
-    // Add photo if available
-    if (entry.photo_url) {
-      try {
+    try {
+      // Background
+      if (entry.photo_url) {
+        // Load and draw photo
         const img = new Image()
         img.crossOrigin = 'anonymous'
         await new Promise((resolve, reject) => {
@@ -291,87 +259,133 @@ const TrackingScreen = ({ onBack }) => {
           img.onerror = reject
           img.src = entry.photo_url
         })
-
-        // Draw photo in a rounded rectangle
-        ctx.save()
-        const photoSize = 120
-        const photoX = 340
-        const photoY = 390
         
-        // Create rounded rectangle path
-        ctx.beginPath()
-        ctx.roundRect(photoX, photoY, photoSize, photoSize, 15)
-        ctx.clip()
-        ctx.drawImage(img, photoX, photoY, photoSize, photoSize)
-        ctx.restore()
-
-        // Add border around photo
-        ctx.beginPath()
-        ctx.roundRect(photoX, photoY, photoSize, photoSize, 15)
-        ctx.strokeStyle = '#ffffff'
-        ctx.lineWidth = 4
-        ctx.stroke()
-
-        // Add comment overlay if available
-        if (entry.comment) {
-          ctx.save()
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'
-          ctx.fillRect(photoX, photoY + photoSize - 40, photoSize, 40)
-          
-          ctx.font = '16px Arial'
-          ctx.fillStyle = '#ffffff'
-          ctx.textAlign = 'center'
-          const truncatedComment = entry.comment.length > 20 ? 
-            entry.comment.substring(0, 20) + '...' : entry.comment
-          ctx.fillText(truncatedComment, photoX + photoSize/2, photoY + photoSize - 15)
-          ctx.restore()
+        // Draw photo with overlay
+        ctx.drawImage(img, 0, 0, 800, 800)
+        
+        // Add dark overlay for text readability
+        const gradient = ctx.createLinearGradient(0, 0, 0, 800)
+        gradient.addColorStop(0, 'rgba(0, 0, 0, 0.3)')
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0.6)')
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, 800, 800)
+      } else {
+        // Create gradient background based on status
+        const gradient = ctx.createLinearGradient(0, 0, 800, 800)
+        switch (entry.status) {
+          case 'done':
+            gradient.addColorStop(0, '#10b981')
+            gradient.addColorStop(1, '#059669')
+            break
+          case 'done_with_photo':
+            gradient.addColorStop(0, '#3b82f6')
+            gradient.addColorStop(1, '#2563eb')
+            break
+          case 'not_done':
+            gradient.addColorStop(0, '#ef4444')
+            gradient.addColorStop(1, '#dc2626')
+            break
+          default:
+            gradient.addColorStop(0, '#6b7280')
+            gradient.addColorStop(1, '#4b5563')
         }
-      } catch (error) {
-        console.error('Error loading photo for share image:', error)
+        ctx.fillStyle = gradient
+        ctx.fillRect(0, 0, 800, 800)
       }
-    } else {
-      // Create a card-like visual for non-photo entries
-      ctx.save()
-      
-      // Card background
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)'
-      ctx.fillRect(320, 390, 160, 120)
-      
-      // Card border
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 2
-      ctx.strokeRect(320, 390, 160, 120)
-      
-      // Status icon area
-      ctx.fillStyle = getStatusText(entry.status) === 'Completed' ? '#10b981' : 
-                     getStatusText(entry.status) === 'Completed with Photo' ? '#3b82f6' : '#ef4444'
-      ctx.fillRect(330, 400, 140, 40)
-      
-      // Status text
-      ctx.font = 'bold 16px Arial'
+
+      // Goal symbol (top left)
+      ctx.font = 'bold 80px Arial'
+      ctx.textAlign = 'left'
       ctx.fillStyle = '#ffffff'
-      ctx.textAlign = 'center'
-      ctx.fillText(getStatusText(entry.status), 400, 425)
-      
-      // Comment if available
-      if (entry.comment) {
-        ctx.font = '14px Arial'
+      ctx.fillText(entry.goals?.symbol || '🎯', 60, 140)
+
+      // Goal name (top)
+      ctx.font = 'bold 48px Arial'
+      ctx.textAlign = 'left'
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(entry.goals?.name || 'Goal', 60, 200)
+
+      // Week number (top right)
+      const weekNumber = getWeekNumber(entry.completed_at)
+      ctx.font = '32px Arial'
+      ctx.textAlign = 'right'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+      ctx.fillText(`Week ${weekNumber}`, 740, 80)
+
+      // Stats (center)
+      if (entry.goals?.is_countable && entry.quantity && entry.quantity > 1) {
+        ctx.font = 'bold 120px Arial'
+        ctx.textAlign = 'center'
         ctx.fillStyle = '#ffffff'
-        const truncatedComment = entry.comment.length > 15 ? 
-          entry.comment.substring(0, 15) + '...' : entry.comment
-        ctx.fillText(truncatedComment, 400, 480)
+        ctx.fillText(entry.quantity.toString(), 400, 450)
+        
+        ctx.font = '36px Arial'
+        ctx.fillText(entry.goals.target_unit || 'units', 400, 500)
       }
+
+      // Comment (bottom)
+      if (entry.comment) {
+        ctx.font = '32px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillStyle = '#ffffff'
+        
+        // Word wrap for long comments
+        const words = entry.comment.split(' ')
+        const maxWidth = 680
+        let line = ''
+        let y = 650
+        
+        for (let n = 0; n < words.length; n++) {
+          const testLine = line + words[n] + ' '
+          const metrics = ctx.measureText(testLine)
+          const testWidth = metrics.width
+          
+          if (testWidth > maxWidth && n > 0) {
+            ctx.fillText(line, 400, y)
+            line = words[n] + ' '
+            y += 40
+            if (y > 720) break // Prevent overflow
+          } else {
+            line = testLine
+          }
+        }
+        ctx.fillText(line, 400, y)
+      }
+
+      // Date and time (bottom)
+      const date = formatDate(entry.completed_at)
+      const time = new Date(entry.completed_at).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      })
       
-      ctx.restore()
+      ctx.font = '28px Arial'
+      ctx.textAlign = 'left'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
+      ctx.fillText(date, 60, 750)
+      
+      ctx.textAlign = 'right'
+      ctx.fillText(time, 740, 750)
+
+      // MindStory branding
+      ctx.font = '24px Arial'
+      ctx.textAlign = 'center'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+      ctx.fillText('MindStory', 400, 780)
+
+      return canvas.toDataURL('image/png')
+    } catch (error) {
+      console.error('Error generating share image:', error)
+      return null
     }
+  }
 
-    // Add MindStory branding
-    ctx.font = '24px Arial'
-    ctx.fillStyle = '#cbd5e0'
-    ctx.textAlign = 'center'
-    ctx.fillText('MindStory', 400, 550)
-
-    return canvas.toDataURL('image/png')
+  const getWeekNumber = (date) => {
+    const d = new Date(date)
+    const yearStart = new Date(d.getFullYear(), 0, 1)
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + yearStart.getDay() + 1) / 7)
+    return weekNo
   }
 
   const fetchTodayCompletions = async () => {
@@ -724,19 +738,12 @@ const TrackingScreen = ({ onBack }) => {
   }
 
   // Enhanced share functionality with proper Web Share API check
-  const handleEntryShare = async (entry, weeklyProgress = null, totalProgress = null) => {
+  const handleEntryShare = async (entry) => {
     try {
-      let shareText = `🎯 ${entry.goals?.name}\n${getStatusText(entry.status)} on ${formatDate(entry.completed_at)}`
+      // Generate share image
+      const imageDataUrl = await generateShareImage(entry)
       
-      // Add progress stats to share text
-      if (weeklyProgress && weeklyProgress.target > 0) {
-        shareText += `\n📊 This week: ${weeklyProgress.current}/${weeklyProgress.target}`
-      }
-      if (totalProgress && totalProgress.target > 0) {
-        shareText += `\n🎯 Total: ${totalProgress.current}/${totalProgress.target} ${entry.goals?.target_unit || 'completions'}`
-      }
-      
-      shareText += '\n\n#MindStory #Goals #Progress'
+      const shareText = `🎯 ${entry.goals?.name}\n${getStatusText(entry.status)} on ${formatDate(entry.completed_at)}\n\n#MindStory #Goals #Progress`
       
       const shareData = {
         title: `${entry.goals?.name} - Progress`,
@@ -744,31 +751,43 @@ const TrackingScreen = ({ onBack }) => {
         url: window.location.href
       }
 
-      // Try to generate and share image
-      try {
-        const imageDataUrl = await generateShareImage(entry)
-        if (imageDataUrl) {
+      // Try to add image to share data
+      if (imageDataUrl && navigator.share) {
+        try {
           const response = await fetch(imageDataUrl)
           const blob = await response.blob()
           const file = new File([blob], 'mindstory-progress.png', { type: 'image/png' })
           
-          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
             shareData.files = [file]
-            await navigator.share(shareData)
-            return
           }
+        } catch (imageError) {
+          console.error('Error preparing image for sharing:', imageError)
         }
-      } catch (imageError) {
-        console.error('Error generating share image:', imageError)
       }
 
-      // Fallback to text sharing or clipboard
+      // Check if Web Share API is supported
       if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
         await navigator.share(shareData)
+      } else if (imageDataUrl) {
+        // Fallback: download image and copy text
+        const link = document.createElement('a')
+        link.download = `mindstory-${entry.goals?.name || 'progress'}-${Date.now()}.png`
+        link.href = imageDataUrl
+        link.click()
+        
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(shareText)
+          alert('Image downloaded and progress text copied to clipboard!')
+        } else {
+          alert('Image downloaded! Please copy this text:\n\n' + shareText)
+        }
       } else if (navigator.clipboard) {
+        // Text-only fallback
         await navigator.clipboard.writeText(shareText)
         alert('Progress copied to clipboard!')
       } else {
+        // Final fallback for older browsers
         const textArea = document.createElement('textarea')
         textArea.value = shareText
         document.body.appendChild(textArea)
@@ -1236,205 +1255,24 @@ const TrackingScreen = ({ onBack }) => {
             </div>
           )}
 
-          <div className="space-y-4 sm:space-y-6">
-            {entries.map((entry) => {
-              // Use currentUser instead of making async call
-              const canEdit = currentUser && entry.user_id === currentUser.id
-
-              return (
-                <div
-                  key={entry.id}
-                  onContextMenu={(e) => {
-                    e.preventDefault()
-                    handleEntryLongPress(entry, e)
-                  }}
-                  onTouchStart={(e) => {
-                    const timer = setTimeout(() => {
-                      handleEntryLongPress(entry, e)
-                    }, 800)
-                    e.currentTarget.dataset.timer = timer
-                  }}
-                  onTouchEnd={(e) => {
-                    const timer = e.currentTarget.dataset.timer
-                    if (timer) clearTimeout(timer)
-                  }}
-                  className="glass-card p-6 sm:p-8 rounded-2xl sm:rounded-3xl hover:shadow-premium-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer group relative overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  
-                  <div className="relative z-10">
-                    {/* Header */}
-                    <div className="flex items-center justify-between mb-4 sm:mb-6">
-                      <div className="flex items-center space-x-3 sm:space-x-4">
-                        <div className="text-2xl sm:text-3xl">{entry.goals?.symbol || '🎯'}</div>
-                        <div>
-                          <h4 className="font-bold text-lg sm:text-xl text-gray-800">{entry.goals?.name}</h4>
-                          <p className="text-sm sm:text-base text-gray-600">{formatDate(entry.completed_at, {
-                            today: t.today,
-                            yesterday: t.yesterday,
-                            daysAgo: t.daysAgo,
-                          })}</p>
-                        </div>
-                      </div>
-                      
-                      <div className={`p-3 rounded-full bg-gradient-to-r ${getStatusColor(entry.status)} shadow-premium`}>
-                        {getStatusIcon(entry.status)}
-                      </div>
-                    </div>
-
-                    {/* Quantity/Duration Display for Countable Goals */}
-                    {entry.goals?.is_countable && entry.quantity && entry.quantity > 1 && (
-                      <div className="mb-4 p-3 bg-gray-50 rounded-xl">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Amount:</span>
-                          <span className="font-semibold text-gray-800">
-                            {entry.quantity} {entry.goals.target_unit || 'units'}
-                          </span>
-                        </div>
-                        {entry.duration_minutes && (
-                          <div className="flex items-center justify-between text-sm mt-1">
-                            <span className="text-gray-600">Duration:</span>
-                            <span className="font-semibold text-gray-800">
-                              {entry.duration_minutes} minutes
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Photo with Comment Overlay */}
-                    {entry.photo_url && (
-                      <div className="mb-4 sm:mb-6 relative">
-                        <img
-                          src={entry.photo_url}
-                          alt="Progress photo"
-                          className="w-full aspect-square object-cover rounded-xl sm:rounded-2xl shadow-premium"
-                        />
-                        {/* Comment Overlay */}
-                        {entry.comment && (
-                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent p-4 rounded-b-xl sm:rounded-b-2xl">
-                            <p className="text-white font-semibold text-lg leading-relaxed">
-                              {entry.comment}
-                            </p>
-                          </div>
-                        )}
-                        
-                        {/* Stats Overlay */}
-                        <div className="absolute top-4 right-4 space-y-2">
-                          <StatsOverlay entry={entry} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Non-Photo Entry Card Style */}
-                    {!entry.photo_url && (
-                      <div className="mb-4 sm:mb-6 relative">
-                        <div className="w-full aspect-square bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl sm:rounded-2xl shadow-premium flex flex-col items-center justify-center p-8 relative overflow-hidden">
-                          {/* Background Pattern */}
-                          <div className="absolute inset-0 opacity-10">
-                            <div className="absolute top-4 left-4 w-8 h-8 bg-primary-300 rounded-full"></div>
-                            <div className="absolute bottom-4 right-4 w-12 h-12 bg-secondary-300 rounded-full"></div>
-                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 bg-success-300 rounded-full"></div>
-                          </div>
-                          
-                          {/* Content */}
-                          <div className="relative z-10 text-center">
-                            <div className="text-6xl mb-4">{entry.goals?.symbol || '🎯'}</div>
-                            <div className={`px-4 py-2 rounded-full bg-gradient-to-r ${getStatusColor(entry.status)} text-white font-semibold mb-4`}>
-                              {getStatusText(entry.status)}
-                            </div>
-                            {entry.comment && (
-                              <p className="text-gray-700 font-medium text-lg leading-relaxed">
-                                {entry.comment}
-                              </p>
-                            )}
-                          </div>
-                          
-                          {/* Stats Overlay */}
-                          <div className="absolute top-4 right-4 space-y-2">
-                            <StatsOverlay entry={entry} />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Comment for Photo Entries (if not overlaid) */}
-                    {entry.comment && entry.photo_url && (
-                      <p className="text-gray-700 mb-4 sm:mb-6 text-base sm:text-lg leading-relaxed">
-                        {entry.comment}
-                      </p>
-                    )}
-
-                    {/* Comment for Non-Photo Entries */}
-                    {entry.comment && !entry.photo_url && (
-                      <div className="mb-4 sm:mb-6 p-4 bg-gray-50 rounded-xl">
-                        <p className="text-gray-700 text-base sm:text-lg leading-relaxed italic">
-                          "{entry.comment}"
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Actions - Updated to show only delete, share, and edit */}
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-gray-500">
-                        {new Date(entry.completed_at).toLocaleTimeString('en-US', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                          hour12: true
-                        })}
-                      </div>
-
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            // Calculate and pass progress stats for sharing
-                            Promise.all([
-                              getWeeklyProgress(entry.goal_id, entry.completed_at),
-                              getTotalProgress(entry.goal_id)
-                            ]).then(([weeklyProgress, totalProgress]) => {
-                              handleEntryShare(entry, weeklyProgress, totalProgress)
-                            })
-                          }}
-                          className="p-2 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-lg"
-                          title="Share"
-                        >
-                          <Share2 className="w-4 h-4 text-gray-600" />
-                        </button>
-                        
-                        {canEdit && (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleEntryEdit(entry)
-                              }}
-                              className="p-2 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-lg"
-                              title="Edit"
-                            >
-                              <Edit3 className="w-4 h-4 text-gray-600" />
-                            </button>
-                            
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (confirm('Are you sure you want to delete this entry?')) {
-                                  handleEntryDelete(entry.id)
-                                }
-                              }}
-                              className="p-2 glass-card hover:shadow-premium-lg transition-all duration-300 hover:scale-105 active:scale-95 rounded-lg"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4 text-error-600" />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {entries.map((entry) => (
+              <TrackingEntryCard
+                key={entry.id}
+                entry={entry}
+                currentUser={currentUser}
+                onContextMenu={handleEntryLongPress}
+                onShare={handleEntryShare}
+                onEdit={handleEntryEdit}
+                onDelete={handleEntryDelete}
+                formatDate={(date) => formatDate(date, {
+                  today: t.today,
+                  yesterday: t.yesterday,
+                  daysAgo: t.daysAgo,
+                })}
+              />
+            ))}
+          </div>
 
             {entries.length === 0 && (
               <div className="text-center py-16 text-gray-500">
@@ -1443,7 +1281,6 @@ const TrackingScreen = ({ onBack }) => {
                 <p className="text-base">Start tracking your goals to see progress here!</p>
               </div>
             )}
-          </div>
         </div>
       </div>
 

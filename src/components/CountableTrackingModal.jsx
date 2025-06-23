@@ -117,7 +117,10 @@ const CountableTrackingModal = ({
                   )}
                 </div>
                 <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm font-medium">
-                  {new Date().toLocaleTimeString('en-US', {
+                  {new Date().toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                  })} • {new Date().toLocaleTimeString('en-US', {
                     hour: 'numeric',
                     minute: '2-digit',
                     hour12: true
