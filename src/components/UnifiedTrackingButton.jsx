@@ -313,7 +313,7 @@ const UnifiedTrackingButton = ({
     if (navigator.vibrate) {
       navigator.vibrate([150, 50, 150])
     }
-  }, [onTrackingAction, onPhotoCapture, buttonApi])
+  }, [onTrackingAction, buttonApi])
 
   // Execute count action (3-second hold without drag)
   const executeCountAction = useCallback(() => {
