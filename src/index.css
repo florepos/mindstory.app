@@ -213,6 +213,38 @@
   .touch-target {
     @apply min-h-[44px] min-w-[44px];
   }
+
+  /* iOS Safari specific fixes */
+  @supports (-webkit-touch-callout: none) {
+    .ios-file-input-fix {
+      position: absolute !important;
+      left: -9999px !important;
+      top: -9999px !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+    }
+  }
+
+  /* Ensure proper z-index stacking for mobile */
+  .mobile-overlay-fix {
+    position: relative;
+    z-index: 1000;
+  }
+
+  /* Enhanced touch targets for mobile icon selection */
+  @media (max-width: 640px) {
+    .mobile-icon-grid {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+    }
+    
+    .mobile-icon-button {
+      min-height: 60px;
+      min-width: 60px;
+      padding: 1rem;
+      font-size: 2rem;
+    }
+  }
 }
 
 @keyframes fadeInUp {

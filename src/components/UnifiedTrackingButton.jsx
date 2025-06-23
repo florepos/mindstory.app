@@ -288,14 +288,19 @@ const UnifiedTrackingButton = ({
         console.log('⬅️ Left drag: Not done')
         break
       case 'up':
-        // For iPhone Safari, we need to trigger file input IMMEDIATELY in this callback
-        console.log('📸 Up drag: Direct file input trigger for iPhone compatibility')
-        if (onPhotoCapture) {
-          // Trigger file input directly in this gesture context
-          onPhotoCapture()
-          resetButton()
-          return
+        console.log('📸 Up drag: Photo capture')
+        
+        // Handle iOS devices differently to maintain user gesture context
+        if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+          console.log('📱 iOS device - direct photo capture')
+          handleIOSPhotoCapture()
+        } else {
+          if (onPhotoCapture) {
+            onPhotoCapture()
+          }
         }
+        resetButton()
+        return
         break
       default:
         action = 'done'

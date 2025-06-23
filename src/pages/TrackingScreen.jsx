@@ -888,11 +888,12 @@ const TrackingScreen = ({ onBack }) => {
             selectedGoal={selectedGoal}
             disabled={!selectedGoal}
             completionCount={todayCompletions}
+            className="relative z-30"
           />
           
           {/* Tracking Feedback */}
           {trackingAction && (
-            <div className="mt-8 animate-scale-in">
+            <div className="mt-8 animate-scale-in relative z-20">
               <div className={`px-6 py-3 rounded-full text-white font-semibold bg-gradient-to-r ${getTrackingFeedback().color} shadow-premium-lg`}>
                 <div className="flex items-center justify-center space-x-3">
                   {React.createElement(getTrackingFeedback().icon, { className: "w-5 h-5" })}
@@ -903,7 +904,7 @@ const TrackingScreen = ({ onBack }) => {
           )}
 
           {uploadingPhoto && (
-            <div className="mt-8 animate-scale-in">
+            <div className="mt-8 animate-scale-in relative z-20">
               <div className="px-6 py-3 rounded-full text-white font-semibold bg-gradient-to-r from-primary-500 to-primary-600 shadow-premium-lg">
                 <div className="flex items-center justify-center space-x-3">
                   <Upload className="w-5 h-5 animate-bounce" />

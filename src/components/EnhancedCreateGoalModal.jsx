@@ -261,13 +261,13 @@ const EnhancedCreateGoalModal = ({ isOpen, onClose, onGoalCreated }) => {
             <label className="block text-lg font-semibold text-gray-700 mb-4">
               Choose Symbol
             </label>
-            <div className="grid grid-cols-8 gap-3 max-h-64 overflow-y-auto p-2 border border-gray-200 rounded-xl">
+            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-4 sm:gap-3 max-h-64 overflow-y-auto p-3 sm:p-2 border border-gray-200 rounded-xl">
               {symbolOptions.map((symbol) => (
                 <button
                   key={symbol}
                   type="button"
                   onClick={() => setFormData(prev => ({ ...prev, symbol }))}
-                  className={`p-4 text-3xl rounded-xl border-2 transition-all duration-300 hover:scale-110 ${
+                  className={`p-4 sm:p-3 text-4xl sm:text-3xl rounded-xl border-2 transition-all duration-300 hover:scale-110 min-h-[60px] sm:min-h-[50px] flex items-center justify-center ${
                     formData.symbol === symbol
                       ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-primary-100 shadow-premium'
                       : 'border-gray-200 hover:border-gray-300 glass-card'
