@@ -149,7 +149,7 @@ const TrackingScreen = ({ onBack }) => {
             is_countable,
             target_unit,
             total_target,
-            frequency
+            frequency,
             total_target,
             frequency,
             privacy_level
