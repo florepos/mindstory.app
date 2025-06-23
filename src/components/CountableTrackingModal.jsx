@@ -110,7 +110,7 @@ const CountableTrackingModal = ({
               {/* Stats Overlay */}
               <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
                 <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm font-medium">
-                  {goal?.is_countable && quantity > 1 ? (
+                  {goal?.is_countable ? (
                     <span>{quantity} {goal.target_unit || 'units'}</span>
                   ) : (
                     <span>1 completion</span>
