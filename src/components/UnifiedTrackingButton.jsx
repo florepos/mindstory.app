@@ -288,9 +288,16 @@ const UnifiedTrackingButton = ({
         console.log('⬅️ Left drag: Not done')
         break
       case 'up':
-        action = 'done_with_photo'
-        console.log('📸 Up drag: Done with photo')
-        break
+        // For up drag, trigger photo capture directly
+        console.log('📸 Up drag: Triggering photo capture')
+        if (onPhotoCapture) {
+          onPhotoCapture()
+        } else {
+          // Fallback to done_with_photo action
+          onTrackingAction('done_with_photo', false)
+        }
+        resetButton()
+        return
       default:
         action = 'done'
         requiresComment = true
@@ -389,10 +396,18 @@ const UnifiedTrackingButton = ({
   useEffect(() => {
     if (isPressed) {
       const handleGlobalMove = (e) => {
+        // Prevent default for touch events to avoid scrolling
+        if (e.type.startsWith('touch')) {
+          e.preventDefault()
+        }
         handleMove(e)
       }
 
       const handleGlobalEnd = (e) => {
+        // Prevent default for touch events
+        if (e.type.startsWith('touch')) {
+          e.preventDefault()
+        }
         handleEnd(e)
       }
 
@@ -558,7 +573,10 @@ const UnifiedTrackingButton = ({
         // Pointer Events (modern browsers)
         onPointerDown={handleStart}
         // Touch Events (mobile)
-        onTouchStart={handleStart}
+        onTouchStart={(e) => {
+          e.preventDefault()
+          handleStart(e)
+        }}
         // Mouse Events (desktop fallback)
         onMouseDown={handleStart}
         onContextMenu={(e) => e.preventDefault()}

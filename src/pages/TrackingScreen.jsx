@@ -460,6 +460,10 @@ const TrackingScreen = ({ onBack }) => {
   // Handle photo capture from unified button
   const handlePhotoCapture = () => {
     console.log('📸 Photo capture triggered from unified button')
+    if (!selectedGoal) {
+      console.error('❌ No goal selected for photo capture')
+      return
+    }
     fileInputRef.current?.click()
   }
 
