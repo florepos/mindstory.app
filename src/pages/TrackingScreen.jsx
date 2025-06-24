@@ -1397,6 +1397,8 @@ const TrackingScreen = ({ onBack }) => {
         }}
         onSave={saveEntry}
         goal={selectedGoal}
+        totalCompletions={totalCompletions}
+        weeklyCompletions={weeklyCompletions}
         action={pendingEntry?.status}
         photoFile={selectedPhotoFile}
         photoPreviewUrl={photoPreviewUrl}

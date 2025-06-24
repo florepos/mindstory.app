@@ -6,6 +6,8 @@ const CountableTrackingModal = ({
   onClose, 
   onSave, 
   goal, 
+  totalCompletions = 0,
+  weeklyCompletions = 0,
   action = 'done',
   photoFile = null,
   photoPreviewUrl = ''
@@ -122,15 +124,13 @@ const CountableTrackingModal = ({
                     day: 'numeric'
                   })} • {new Date().toLocaleTimeString('en-US', {
                     hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
+                        {totalCompletions}{goal?.total_target ? `/${goal.total_target}` : ''} completions
                   })}
                 </div>
               </div>
               
               {/* Comment Overlay */}
-              {comment && (
-                <div className="absolute bottom-3 left-3 right-3">
+                        {weeklyCompletions}{goal?.frequency ? `/${goal.frequency}` : ''} done
                   <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg">
                     <span className="text-sm font-medium">{comment}</span>
                   </div>
@@ -161,15 +161,13 @@ const CountableTrackingModal = ({
                   onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
                   min="1"
                   className="input-premium text-center text-xl font-bold w-24"
-                  disabled={loading}
-                />
+                  {totalCompletions}{goal?.total_target ? ` / ${goal.total_target}` : ''}
                 <button
                   type="button"
                   onClick={() => setQuantity(quantity + 1)}
                   className="p-3 bg-gray-200 hover:bg-gray-300 rounded-xl transition-colors"
                   disabled={loading}
-                >
-                  <Plus className="w-4 h-4" />
+                  {weeklyCompletions}{goal?.frequency ? ` / ${goal.frequency}` : ''}
                 </button>
               </div>
             </div>
