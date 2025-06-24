@@ -33,6 +33,8 @@ const TrackingScreen = ({ onBack }) => {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [showBurgerMenu, setShowBurgerMenu] = useState(false)
   const [todayCompletions, setTodayCompletions] = useState(0)
+  const [totalCompletions, setTotalCompletions] = useState(0)
+  const [weeklyCompletions, setWeeklyCompletions] = useState(0)
   const [showPhotoConfirmButton, setShowPhotoConfirmButton] = useState(false)
   const goalScrollRef = useRef(null)
   const feedRef = useRef(null)
@@ -72,7 +74,7 @@ const TrackingScreen = ({ onBack }) => {
     if (goals.length > 0) {
       fetchEntries()
       fetchCollaborators()
-      fetchTodayCompletions()
+      fetchCompletionStats()
     }
   }, [goals, selectedGoalIndex, filterMode])
 
@@ -148,11 +150,7 @@ const TrackingScreen = ({ onBack }) => {
             symbol,
             is_countable,
             target_unit,
-            total_target,
-            frequency,
-            total_target,
-            frequency,
-            privacy_level
+            target_unit
           )
         `)
         .eq('user_id', user.id)
@@ -438,7 +436,7 @@ const TrackingScreen = ({ onBack }) => {
     return weekNo
   }
 
-  const fetchTodayCompletions = async () => {
+  const fetchCompletionStats = async () => {
     if (!selectedGoal) return
 
     try {
@@ -447,8 +445,12 @@ const TrackingScreen = ({ onBack }) => {
       if (userError || !user) return
 
       const today = new Date().toISOString().split('T')[0]
+      const weekStart = new Date()
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+      const weekStartISO = weekStart.toISOString().split('T')[0]
       
-      const { data, error } = await supabase
+      // Get today's completions
+      const { data: todayData, error: todayError } = await supabase
         .from('goal_entries')
         .select('*')
         .eq('goal_id', selectedGoal.id)
@@ -457,13 +459,36 @@ const TrackingScreen = ({ onBack }) => {
         .lt('completed_at', `${today}T23:59:59.999Z`)
         .in('status', ['done', 'done_with_photo'])
 
-      if (error) throw error
+      if (todayError) throw todayError
       
-      setTodayCompletions(data?.length || 0)
+      // Get total completions
+      const { data: totalData, error: totalError } = await supabase
+        .from('goal_entries')
+        .select('*')
+        .eq('goal_id', selectedGoal.id)
+        .eq('user_id', user.id)
+        .in('status', ['done', 'done_with_photo'])
+
+      if (totalError) throw totalError
+
+      // Get weekly completions
+      const { data: weeklyData, error: weeklyError } = await supabase
+        .from('goal_entries')
+        .select('*')
+        .eq('goal_id', selectedGoal.id)
+        .eq('user_id', user.id)
+        .gte('completed_at', `${weekStartISO}T00:00:00.000Z`)
+        .in('status', ['done', 'done_with_photo'])
+
+      if (weeklyError) throw weeklyError
+      
+      setTodayCompletions(todayData?.length || 0)
+      setTotalCompletions(totalData?.length || 0)
+      setWeeklyCompletions(weeklyData?.length || 0)
     } catch (error) {
-      console.error('Error fetching today completions:', error)
+      console.error('Error fetching completion stats:', error)
     }
-  }
+  }</parameter>
 
   const fetchCollaborators = async () => {
     if (!goals[selectedGoalIndex] || goals[selectedGoalIndex].privacy_level !== 'friends_challenge') {
@@ -695,7 +720,7 @@ const TrackingScreen = ({ onBack }) => {
       fetchEntries()
 
       // Refresh today's completions
-      fetchTodayCompletions()
+      fetchCompletionStats()
 
       // Show success feedback
       setTrackingAction(entryData.status)
@@ -1186,10 +1211,9 @@ const TrackingScreen = ({ onBack }) => {
       <section className="relative z-20 flex justify-center py-20 sm:py-24 lg:py-28">
         <div className="text-center">
           <UnifiedTrackingButton
-            onTrackingAction={handleTrackingAction}
             selectedGoal={selectedGoal}
             disabled={!selectedGoal}
-            completionCount={todayCompletions}
+            completionCount={todayCompletions > 1 ? todayCompletions : 0}
             className="relative z-30"
           />
           
@@ -1219,7 +1243,7 @@ const TrackingScreen = ({ onBack }) => {
                     <span>Open Camera</span>
                   </button>
                 </div>
-              </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             </div>
           )}
           
@@ -1265,67 +1289,97 @@ const TrackingScreen = ({ onBack }) => {
               </div>
             </div>
             
-            <div className="flex items-center space-x-3 sm:space-x-4">
-              <button
-                onClick={() => setFilterMode(filterMode === 'current' ? 'all' : 'current')}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
-                  filterMode === 'current'
-                    ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                <Filter className="w-3 h-3 inline mr-1" />
-                {filterMode === 'current' ? t.currentGoal : t.allGoals}
-              </button>
-            </div>
-          </div>
-
-          {/* Collaborator Avatars for Friends Goals */}
-          {selectedGoal?.privacy_level === 'friends_challenge' && collaborators.length > 0 && (
-            <div className="flex items-center space-x-2 mb-6">
-              <span className="text-sm text-gray-600 mr-2">With:</span>
-              <div className="flex -space-x-2 overflow-hidden">
-                {collaborators.slice(0, 5).map((collaborator) => (
-                  <div key={collaborator.id} className="w-8 h-8 rounded-full border-2 border-white overflow-hidden">
-                    {collaborator.profiles?.avatar_url ? (
-                      <img src={collaborator.profiles.avatar_url} alt={collaborator.profiles.display_name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-gray-300 flex items-center justify-center">
-                        <User className="w-4 h-4 text-gray-600" />
+                    {/* Bottom Section - Date, Time & Comment */}
+                    <div className="space-y-2">
+                      {/* Comment */}
+                      {entry.comment && (
+                        <div className="bg-black/40 backdrop-blur-sm px-3 py-2 rounded-lg">
+                          <p className="text-sm font-medium line-clamp-2 drop-shadow">
+                            {entry.comment}
+                          </p>
+                        </div>
+                      )}
+                      
+                      {/* Date and Time */}
+                      <div className="flex items-center justify-between">
+                        <div className="bg-black/40 backdrop-blur-sm px-3 py-2 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <Calendar className="w-4 h-4" />
+                            <span className="text-sm font-medium drop-shadow">
+                              {formatDate(entry.completed_at, {
+                                today: t.today,
+                                yesterday: t.yesterday,
+                                daysAgo: t.daysAgo,
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="bg-black/40 backdrop-blur-sm px-3 py-2 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <Clock className="w-4 h-4" />
+                            <span className="text-sm font-medium drop-shadow">
+                              {new Date(entry.completed_at).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    )}
+                    </div>
+                  className="relative w-full aspect-square rounded-2xl sm:rounded-3xl overflow-hidden shadow-premium hover:shadow-premium-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer group"
+                    {/* Action Buttons Overlay (visible on hover) */}
+                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEntryShare(entry)
+                          }}
+                          className="p-2 bg-black/60 backdrop-blur-sm hover:bg-black/80 rounded-lg transition-colors"
+                          title="Share"
+                        >
+                          <Share2 className="w-4 h-4 text-white" />
+                        </button>
+                        
+                        {canEdit && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleEntryEdit(entry)
+                              }}
+                              className="p-2 bg-black/60 backdrop-blur-sm hover:bg-black/80 rounded-lg transition-colors"
+                              title="Edit"
+                            >
+                              <Edit3 className="w-4 h-4 text-white" />
+                            </button>
+                            
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm('Are you sure you want to delete this entry?')) {
+                                  handleEntryDelete(entry.id)
+                                }
+                              }}
+                              className="p-2 bg-black/60 backdrop-blur-sm hover:bg-black/80 rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4 text-white" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ))}
-                {collaborators.length > 5 && (
-                  <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-200 flex items-center justify-center">
-                    <span className="text-xs font-medium text-gray-600">+{collaborators.length - 5}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {entries.map((entry) => (
-              <TrackingEntryCard
-                key={entry.id}
-                entry={entry}
-                currentUser={currentUser}
-                onContextMenu={handleEntryLongPress}
-                onShare={handleEntryShare}
-                onEdit={handleEntryEdit}
-                onDelete={handleEntryDelete}
-                formatDate={(date) => formatDate(date, {
-                  today: t.today,
-                  yesterday: t.yesterday,
-                  daysAgo: t.daysAgo,
-                })}
-              />
-            ))}
-          </div>
-
+                </div>
+              )
+            })}
+                          entry.status === 'not_done' ? '#ef4444, #dc2626' :
             {entries.length === 0 && (
-              <div className="text-center py-16 text-gray-500">
+              <div className="col-span-full text-center py-16 text-gray-500">
                 <TrendingUp className="w-16 h-16 mx-auto mb-6 text-gray-300" />
                 <p className="text-xl font-semibold">No entries yet</p>
                 <p className="text-base">Start tracking your goals to see progress here!</p>
@@ -1399,12 +1453,14 @@ const TrackingScreen = ({ onBack }) => {
         goal={selectedGoal}
         totalCompletions={totalCompletions}
         weeklyCompletions={weeklyCompletions}
+        totalCompletions={totalCompletions}
+        weeklyCompletions={weeklyCompletions}
         action={pendingEntry?.status}
         photoFile={selectedPhotoFile}
         photoPreviewUrl={photoPreviewUrl}
       />
 
-      {/* Context Menu for Entry Management */}
+          {action !== 'not_done' && (
       <TrackingEntryContextMenu
         entry={selectedEntry}
         isOpen={showContextMenu}
@@ -1428,16 +1484,34 @@ const TrackingScreen = ({ onBack }) => {
                 </div>
               </div>
               <button
-                onClick={() => setShowGoalModal(false)}
-                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
+              <h4 className="font-semibold text-gray-800 mb-3">Progress Overview</h4>
+              
+              {goal.is_countable && (
 
-            <div className="space-y-4">
-              {selectedGoal.description && (
+                  <span>This session:</span>
+                  <span className="font-medium">{quantity} {goal.target_unit}</span>
                 <p className="text-gray-700">{selectedGoal.description}</p>
+              )}
+              
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>Total completions:</span>
+                <span className="font-medium">
+                  {totalCompletions + 1}{goal.total_target ? `/${goal.total_target}` : ''} completions
+                </span>
+              </div>
+              
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>This week:</span>
+                <span className="font-medium">
+                  {weeklyCompletions + 1}{goal.frequency ? `/${goal.frequency}` : ''} done
+                </span>
+              </div>
+              
+              {duration && (
+                <div className="flex items-center justify-between text-sm text-gray-600 mt-2 pt-2 border-t border-gray-200">
+                  <span>Duration:</span>
+                  <span className="font-medium">{duration} minutes</span>
+                </div>
               )}
 
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -1478,10 +1552,7 @@ const TrackingScreen = ({ onBack }) => {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Hidden canvas for image generation */}
-      <canvas ref={canvasRef} style={{ display: 'none' }} />
+  // Removed handlePhotoCapture as it's no longer needed</parameter>
     </div>
   )
 }
