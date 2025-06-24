@@ -758,7 +758,7 @@ const TrackingScreen = ({ onBack }) => {
               </div>
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold gradient-text-premium">{t.selectGoal}</h2>
-                <p className="text-base sm:text-lg text-gray-600">Choose your focus for today</p>
+                <p className="text-base sm:text-lg text-gray-600">Do it. dream it.</p>
               </div>
             </div>
             <div className="flex space-x-3 sm:space-x-4">
