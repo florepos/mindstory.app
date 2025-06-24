@@ -148,7 +148,9 @@ const TrackingScreen = ({ onBack }) => {
             name,
             symbol,
             is_countable,
-            target_unit
+            target_unit,
+            total_target,
+            frequency
           )
         `)
         .eq('user_id', user.id)
@@ -969,6 +971,8 @@ const TrackingScreen = ({ onBack }) => {
                 key={entry.id}
                 entry={entry}
                 currentUser={currentUser}
+                totalCompletions={totalCompletions}
+                weeklyCompletions={weeklyCompletions}
                 onContextMenu={handleEntryLongPress}
                 onShare={handleEntryShare}
                 onEdit={handleEntryEdit}

@@ -1,5 +1,5 @@
 import React, { useRef } from 'react'
-import { Camera, Check, X, Share2, Edit3, Trash2, Calendar, Clock } from 'lucide-react'
+import { Camera, Check, X, Share2, Edit3, Trash2, Calendar, Clock, Target, TrendingUp } from 'lucide-react'
 
 const TrackingEntryCard = ({ 
   entry, 
@@ -8,7 +8,9 @@ const TrackingEntryCard = ({
   onShare, 
   onEdit, 
   onDelete,
-  formatDate 
+  formatDate,
+  totalCompletions = 0,
+  weeklyCompletions = 0
 }) => {
   const cardRef = useRef(null)
 
@@ -88,7 +90,7 @@ const TrackingEntryCard = ({
       <div className="absolute inset-0 p-4 sm:p-6 flex flex-col justify-between text-white">
         {/* Top Section - Goal Info & Status */}
         <div className="flex items-start justify-between">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-start space-x-3">
             <div className="text-3xl sm:text-4xl drop-shadow-lg">
               {entry.goals?.symbol || '🎯'}
             </div>
@@ -107,24 +109,78 @@ const TrackingEntryCard = ({
           </div>
         </div>
 
-        {/* Middle Section - Stats */}
+        {/* Middle Section - Quantity or Symbol Center */}
         <div className="flex-1 flex items-center justify-center">
-          {entry.goals?.is_countable && entry.quantity && entry.quantity > 1 && (
-            <div className="bg-black/40 backdrop-blur-sm px-4 py-2 rounded-lg">
-              <div className="text-center">
-                <div className="text-2xl sm:text-3xl font-bold">
-                  {entry.quantity}
-                </div>
-                <div className="text-sm opacity-90">
-                  {entry.goals.target_unit || 'units'}
+          {entry.photo_url ? (
+            // If there's a photo, show quantity stats if countable
+            entry.goals?.is_countable && entry.quantity && entry.quantity > 1 && (
+              <div className="bg-black/40 backdrop-blur-sm px-4 py-2 rounded-lg">
+                <div className="text-center">
+                  <div className="text-2xl sm:text-3xl font-bold">
+                    {entry.quantity}
+                  </div>
+                  <div className="text-sm opacity-90">
+                    {entry.goals.target_unit || 'units'}
+                  </div>
                 </div>
               </div>
+            )
+          ) : (
+            // If no photo, center the goal symbol prominently
+            <div className="text-center">
+              <div className="text-6xl sm:text-7xl drop-shadow-lg mb-2">
+                {entry.goals?.symbol || '🎯'}
+              </div>
+              {entry.goals?.is_countable && entry.quantity && entry.quantity > 1 && (
+                <div className="bg-black/40 backdrop-blur-sm px-3 py-1 rounded-lg inline-block">
+                  <span className="text-lg font-bold">
+                    {entry.quantity} {entry.goals.target_unit || 'units'}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </div>
 
-        {/* Bottom Section - Date, Time & Comment */}
+        {/* Bottom Section - Stats, Date, Time & Comment */}
         <div className="space-y-2">
+          {/* Goal Progress Stats */}
+          <div className="flex items-center justify-between space-x-2">
+            {totalCompletions > 1 && (
+              <div className="bg-black/40 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center space-x-1">
+                <Target className="w-3 h-3" />
+                <span className="text-xs font-medium">
+                  {totalCompletions} total
+                </span>
+              </div>
+            )}
+            
+            {weeklyCompletions > 0 && (
+              <div className="bg-black/40 backdrop-blur-sm px-2 py-1 rounded-lg flex items-center space-x-1">
+                <TrendingUp className="w-3 h-3" />
+                <span className="text-xs font-medium">
+                  {weeklyCompletions} this week
+                </span>
+              </div>
+            )}
+            
+            {entry.goals?.total_target && (
+              <div className="bg-black/40 backdrop-blur-sm px-2 py-1 rounded-lg">
+                <span className="text-xs font-medium">
+                  Target: {entry.goals.total_target}
+                </span>
+              </div>
+            )}
+            
+            {entry.goals?.frequency && (
+              <div className="bg-black/40 backdrop-blur-sm px-2 py-1 rounded-lg">
+                <span className="text-xs font-medium">
+                  {entry.goals.frequency}/week planned
+                </span>
+              </div>
+            )}
+          </div>
+          
           {/* Comment */}
           {entry.comment && (
             <div className="bg-black/40 backdrop-blur-sm px-3 py-2 rounded-lg">

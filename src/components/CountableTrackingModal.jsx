@@ -109,7 +109,7 @@ const CountableTrackingModal = ({
                 className="w-full h-60 object-cover rounded-xl shadow-premium"
               />
               
-              {/* Stats Overlay */}
+              {/* Top Stats Overlay */}
               <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
                 <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm font-medium">
                   {goal?.is_countable ? (
@@ -124,8 +124,45 @@ const CountableTrackingModal = ({
                     day: 'numeric'
                   })} • {new Date().toLocaleTimeString('en-US', {
                     hour: 'numeric',
-                    minute: 'numeric'
+                    minute: '2-digit',
+                    hour12: true
                   })}
+                </div>
+              </div>
+              
+              {/* Goal Symbol Overlay */}
+              <div className="absolute top-3 left-1/2 transform -translate-x-1/2">
+                <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-2xl">
+                  {goal?.symbol || '🎯'}
+                </div>
+              </div>
+              
+              {/* Stats Summary Overlay */}
+              <div className="absolute bottom-12 left-3 right-3 flex justify-between items-end">
+                <div className="space-y-1">
+                  {totalCompletions > 0 && (
+                    <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs font-medium">
+                      {totalCompletions} total completions
+                    </div>
+                  )}
+                  {weeklyCompletions > 0 && (
+                    <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs font-medium">
+                      {weeklyCompletions} this week
+                    </div>
+                  )}
+                </div>
+                
+                <div className="space-y-1">
+                  {goal?.total_target && (
+                    <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs font-medium">
+                      Target: {goal.total_target}
+                    </div>
+                  )}
+                  {goal?.frequency && (
+                    <div className="bg-black/60 backdrop-blur-sm text-white px-3 py-1 rounded-lg text-xs font-medium">
+                      {goal.frequency}/week planned
+                    </div>
+                  )}
                 </div>
               </div>
               
