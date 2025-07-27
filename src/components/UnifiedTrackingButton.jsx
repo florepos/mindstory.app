@@ -20,7 +20,7 @@ const UnifiedTrackingButton = ({
   const buttonRef = useRef(null)
   const holdTimerRef = useRef(null)
   const holdStartTime = useRef(null)
-  const dragThreshold = 20
+  const dragThreshold = 15 // Reduced threshold for better mobile responsiveness
   const holdDuration = 3000 // 3 seconds for hold completion
   const hasDraggedRef = useRef(false)
 
@@ -181,12 +181,12 @@ const UnifiedTrackingButton = ({
     const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
     // Mark as dragged if threshold exceeded
-    if (distance > dragThreshold && !hasDraggedRef.current) {
+    if (distance > (dragThreshold * 0.7) && !hasDraggedRef.current) {
       console.log('🖱️ Drag threshold exceeded - user is dragging')
       hasDraggedRef.current = true
     }
 
-    if (distance > 10) { // Low threshold for direction detection
+    if (distance > 8) { // Lower threshold for better mobile responsiveness
       console.log('👆 Drag move:', { deltaX: Math.round(deltaX), deltaY: Math.round(deltaY), distance: Math.round(distance) })
 
       // Determine direction
@@ -200,7 +200,7 @@ const UnifiedTrackingButton = ({
         direction = deltaX > 0 ? 'right' : 'left'
       }
       
-      if (direction !== 'down') { // Ignore downward gestures
+      if (direction) { // Accept all directions including down for debugging
         console.log('📍 Drag direction detected:', direction)
         setGestureDirection(direction)
         
@@ -244,7 +244,7 @@ const UnifiedTrackingButton = ({
     })
 
     // If drag was enabled and user dragged, execute drag action
-    if (isDragEnabled && hasDraggedRef.current && distance >= dragThreshold && gestureDirection && gestureDirection !== 'down') {
+    if (isDragEnabled && hasDraggedRef.current && distance >= dragThreshold && gestureDirection) {
       console.log('✅ Drag gesture completed, executing action for direction:', gestureDirection)
       executeDragAction(gestureDirection)
     } 
@@ -267,6 +267,8 @@ const UnifiedTrackingButton = ({
 
   // Execute drag action based on direction
   const executeDragAction = useCallback((direction) => {
+    console.log('🎯 Executing drag action for direction:', direction)
+    
     if (!onTrackingAction) {
       console.error('❌ onTrackingAction callback not provided')
       resetButton()
@@ -290,6 +292,10 @@ const UnifiedTrackingButton = ({
         action = 'done_with_photo'
         console.log('📸 Up drag: Done with photo')
         break
+      case 'down':
+        action = 'done_with_photo' // Also trigger photo on down drag for testing
+        console.log('📸 Down drag: Done with photo (debug)')
+        break
       default:
         action = 'done'
         requiresComment = true
@@ -297,13 +303,15 @@ const UnifiedTrackingButton = ({
         break
     }
 
+    console.log('🚀 About to call onTrackingAction with:', action, requiresComment)
+    
     // Success animation
     buttonApi.start({
       scale: 1.5,
       rotate: 720,
       glow: 2.5,
       onRest: () => {
-        console.log('🚀 Calling onTrackingAction with:', action, requiresComment)
+        console.log('✨ Animation complete, calling onTrackingAction with:', action, requiresComment)
         onTrackingAction(action, requiresComment)
         setTimeout(resetButton, 300)
       }

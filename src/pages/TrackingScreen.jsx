@@ -473,7 +473,28 @@ const TrackingScreen = ({ onBack }) => {
 
     if (action === 'done_with_photo') {
       console.log('📸 Triggering photo capture')
-      fileInputRef.current?.click()
+      
+      // Enhanced file input triggering for mobile compatibility
+      try {
+        if (fileInputRef.current) {
+          console.log('📂 File input reference found, attempting to trigger...')
+          
+          // For mobile browsers, ensure the click happens in the same user gesture
+          const input = fileInputRef.current
+          input.style.display = 'block'
+          input.style.position = 'absolute'
+          input.style.top = '-9999px'
+          input.click()
+          
+          console.log('✅ File input click triggered successfully')
+        } else {
+          console.error('❌ File input reference not found')
+          alert('Camera not available. Please check permissions.')
+        }
+      } catch (error) {
+        console.error('❌ Error triggering file input:', error)
+        alert('Error opening camera. Please try again.')
+      }
     } else {
       const entry = { status: action }
       if (selectedGoal.is_countable || needsComment) {
