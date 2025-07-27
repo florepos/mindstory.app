@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { ChevronLeft, ChevronRight, Plus, Camera, Check, X, Share2, Edit3, Trash2, Calendar, Target, TrendingUp, Award, Heart, Sparkles, ArrowLeft, Filter, MessageCircle, Upload, Brain, User, Users, Globe, Menu } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Camera, Check, X, Share2, Edit3, Trash2, Calendar, Target, TrendingUp, Award, Heart, Sparkles, ArrowLeft, Filter, MessageCircle, Upload, Brain, User, Users, Globe, Menu, LogOut } from 'lucide-react'
 import { useSpring, animated, config } from '@react-spring/web'
 import { useDrag } from '@use-gesture/react'
 import { supabase } from '../services/supabaseClient'
@@ -701,6 +701,49 @@ const TrackingScreen = ({ onBack }) => {
                 </div>
               )}
               
+            
+            {/* Menu Items */}
+            <div className="space-y-2">
+              {onBack && (
+                <button
+                  onClick={() => handleMenuItemClick(onBack)}
+                  className="w-full text-left p-3 hover:bg-gray-50 rounded-xl transition-colors flex items-center space-x-3"
+                >
+                  <ArrowLeft className="w-5 h-5 text-primary-600" />
+                  <span className="font-medium text-gray-700">Back to Home</span>
+                </button>
+              )}
+              
+              <button
+                onClick={() => handleMenuItemClick(() => setShowCreateModal(true))}
+                className="w-full text-left p-3 hover:bg-gray-50 rounded-xl transition-colors flex items-center space-x-3"
+              >
+                <Plus className="w-5 h-5 text-primary-600" />
+                <span className="font-medium text-gray-700">Create Goal</span>
+              </button>
+              
+              <button
+                onClick={() => handleMenuItemClick(() => setFilterMode(filterMode === 'current' ? 'all' : 'current'))}
+                className="w-full text-left p-3 hover:bg-gray-50 rounded-xl transition-colors flex items-center space-x-3"
+              >
+                <Filter className="w-5 h-5 text-primary-600" />
+                <span className="font-medium text-gray-700">
+                  {filterMode === 'current' ? 'Show All Goals' : 'Show Current Goal'}
+                </span>
+              </button>
+              
+              {currentUser && (
+                <button
+                  onClick={() => handleMenuItemClick(async () => {
+                    await supabase.auth.signOut()
+                  })}
+                  className="w-full text-left p-3 hover:bg-gray-50 rounded-xl transition-colors flex items-center space-x-3"
+                >
+                  <LogOut className="w-5 h-5 text-error-600" />
+                  <span className="font-medium text-gray-700">Sign Out</span>
+                </button>
+              )}
+            </div>
               {/* Stats Display */}
               <div className="flex items-center space-x-2 sm:space-x-4 mb-4">
                 <div className="glass-card rounded-full px-2 sm:px-4 py-1 sm:py-2 shimmer">
